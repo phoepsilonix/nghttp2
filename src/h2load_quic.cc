@@ -35,8 +35,16 @@
 #  include <ngtcp2/ngtcp2_crypto_boringssl.h>
 #endif // HAVE_LIBNGTCP2_CRYPTO_BORINGSSL
 
-#include <openssl/err.h>
-#include <openssl/rand.h>
+#include "ssl_compat.h"
+
+#ifdef NGHTTP2_OPENSSL_IS_WOLFSSL
+#  include <wolfssl/options.h>
+#  include <wolfssl/openssl/err.h>
+#  include <wolfssl/openssl/rand.h>
+#else // !NGHTTP2_OPENSSL_IS_WOLFSSL
+#  include <openssl/err.h>
+#  include <openssl/rand.h>
+#endif // !NGHTTP2_OPENSSL_IS_WOLFSSL
 
 #include "h2load_http3_session.h"
 
@@ -553,7 +561,7 @@ int Client::read_quic() {
   msg.msg_iov = &msg_iov;
   msg.msg_iovlen = 1;
 
-  uint8_t msg_ctrl[CMSG_SPACE(sizeof(uint16_t))];
+  uint8_t msg_ctrl[CMSG_SPACE(sizeof(int))];
   msg.msg_control = msg_ctrl;
 
   auto ts = quic_timestamp();
@@ -646,17 +654,13 @@ int Client::write_quic() {
   }
 
   std::array<nghttp3_vec, 16> vec;
-  size_t pktcnt = 0;
   auto max_udp_payload_size =
       ngtcp2_conn_get_max_tx_udp_payload_size(quic.conn);
-#ifdef UDP_SEGMENT
   auto path_max_udp_payload_size =
       ngtcp2_conn_get_path_max_tx_udp_payload_size(quic.conn);
-#endif // UDP_SEGMENT
-  auto max_pktcnt =
-      std::max(ngtcp2_conn_get_send_quantum(quic.conn) / max_udp_payload_size,
-               static_cast<size_t>(1));
   uint8_t *bufpos = quic.tx.data.get();
+  auto bufleft = std::max(ngtcp2_conn_get_send_quantum(quic.conn),
+                          path_max_udp_payload_size);
   ngtcp2_path_storage ps;
   size_t gso_size = 0;
 
@@ -686,9 +690,11 @@ int Client::write_quic() {
       flags |= NGTCP2_WRITE_STREAM_FLAG_FIN;
     }
 
+    auto buflen = bufleft >= max_udp_payload_size ? max_udp_payload_size
+                                                  : path_max_udp_payload_size;
     auto nwrite = ngtcp2_conn_writev_stream(
-        quic.conn, &ps.path, nullptr, bufpos, max_udp_payload_size, &ndatalen,
-        flags, stream_id, reinterpret_cast<const ngtcp2_vec *>(v), vcnt, ts);
+        quic.conn, &ps.path, nullptr, bufpos, buflen, &ndatalen, flags,
+        stream_id, reinterpret_cast<const ngtcp2_vec *>(v), vcnt, ts);
     if (nwrite < 0) {
       switch (nwrite) {
       case NGTCP2_ERR_STREAM_DATA_BLOCKED:
@@ -730,7 +736,11 @@ int Client::write_quic() {
       return 0;
     }
 
+    auto first_pkt = bufpos == quic.tx.data.get();
+    (void)first_pkt;
+
     bufpos += nwrite;
+    bufleft -= nwrite;
 
 #ifdef UDP_SEGMENT
     if (worker->config->no_udp_gso) {
@@ -745,7 +755,7 @@ int Client::write_quic() {
         return 0;
       }
 
-      if (++pktcnt == max_pktcnt) {
+      if (bufleft < path_max_udp_payload_size) {
         signal_write();
         return 0;
       }
@@ -758,7 +768,7 @@ int Client::write_quic() {
 #endif // UDP_SEGMENT
 
 #ifdef UDP_SEGMENT
-    if (pktcnt == 0) {
+    if (first_pkt) {
       gso_size = nwrite;
     } else if (static_cast<size_t>(nwrite) > gso_size ||
                (gso_size > path_max_udp_payload_size &&
@@ -784,7 +794,8 @@ int Client::write_quic() {
     }
 
     // Assume that the path does not change.
-    if (++pktcnt == max_pktcnt || static_cast<size_t>(nwrite) < gso_size) {
+    if (bufleft < path_max_udp_payload_size ||
+        static_cast<size_t>(nwrite) < gso_size) {
       auto data = quic.tx.data.get();
       auto datalen = bufpos - quic.tx.data.get();
       rv = write_udp(ps.path.remote.addr, ps.path.remote.addrlen, data, datalen,

@@ -371,7 +371,7 @@ StringRef Downstream::assemble_request_cookie() {
     p -= 2;
   }
 
-  return StringRef{std::begin(iov), p};
+  return StringRef{std::span{std::begin(iov), p}};
 }
 
 uint32_t Downstream::find_affinity_cookie(const StringRef &name) {
@@ -391,7 +391,7 @@ uint32_t Downstream::find_affinity_cookie(const StringRef &name) {
         return 0;
       }
 
-      if (!util::streq(name, StringRef{it, end})) {
+      if (name != StringRef{it, end}) {
         it = std::find(it, std::end(kv.value), ';');
         continue;
       }
@@ -478,7 +478,7 @@ StringRef alloc_header_name(BlockAllocator &balloc, const StringRef &name) {
   util::inp_strlower(std::begin(iov), p);
   *p = '\0';
 
-  return StringRef{std::begin(iov), p};
+  return StringRef{std::span{std::begin(iov), p}};
 }
 } // namespace
 
@@ -520,13 +520,13 @@ int FieldStore::parse_content_length() {
     }
 
     auto len = util::parse_uint(kv.value);
-    if (len == -1) {
+    if (!len) {
       return -1;
     }
     if (content_length != -1) {
       return -1;
     }
-    content_length = len;
+    content_length = *len;
   }
   return 0;
 }
@@ -731,7 +731,7 @@ void Downstream::rewrite_location_response_header(
   }
 
   http_parser_url u{};
-  auto rv = http_parser_parse_url(hd->value.c_str(), hd->value.size(), 0, &u);
+  auto rv = http_parser_parse_url(hd->value.data(), hd->value.size(), 0, &u);
   if (rv != 0) {
     return;
   }
@@ -840,7 +840,7 @@ void Downstream::check_upgrade_fulfilled_http1() {
       auto expected =
           http2::make_websocket_accept_token(accept_buf.data(), ws_key_);
 
-      upgraded_ = expected != "" && expected == accept->value;
+      upgraded_ = !expected.empty() && expected == accept->value;
     } else {
       upgraded_ = resp_.http_status / 100 == 2;
     }
@@ -870,15 +870,14 @@ void Downstream::inspect_http1_request() {
     if (upgrade) {
       const auto &val = upgrade->value;
       // TODO Perform more strict checking for upgrade headers
-      if (util::streq_l(NGHTTP2_CLEARTEXT_PROTO_VERSION_ID, val.c_str(),
-                        val.size())) {
+      if (NGHTTP2_CLEARTEXT_PROTO_VERSION_ID ""_sr == val) {
         req_.http2_upgrade_seen = true;
       } else {
         req_.upgrade_request = true;
 
         // TODO Should we check Sec-WebSocket-Key, and
         // Sec-WebSocket-Version as well?
-        if (util::strieq_l("websocket", val)) {
+        if (util::strieq("websocket"_sr, val)) {
           req_.connect_proto = ConnectProto::WEBSOCKET;
         }
       }
@@ -891,8 +890,7 @@ void Downstream::inspect_http1_request() {
 
   auto expect = req_.fs.header(http2::HD_EXPECT);
   expect_100_continue_ =
-      expect &&
-      util::strieq(expect->value, StringRef::from_lit("100-continue"));
+      expect && util::strieq(expect->value, "100-continue"_sr);
 }
 
 void Downstream::inspect_http1_response() {

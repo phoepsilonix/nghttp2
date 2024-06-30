@@ -31,7 +31,14 @@
 
 #include <ev.h>
 
-#include <openssl/ssl.h>
+#include "ssl_compat.h"
+
+#ifdef NGHTTP2_OPENSSL_IS_WOLFSSL
+#  include <wolfssl/options.h>
+#  include <wolfssl/openssl/ssl.h>
+#else // !NGHTTP2_OPENSSL_IS_WOLFSSL
+#  include <openssl/ssl.h>
+#endif // !NGHTTP2_OPENSSL_IS_WOLFSSL
 
 #include "shrpx_rate_limit.h"
 #include "shrpx_connection.h"
@@ -153,7 +160,7 @@ public:
   void setup_http3_upstream(std::unique_ptr<Http3Upstream> &&upstream);
   int read_quic(const UpstreamAddr *faddr, const Address &remote_addr,
                 const Address &local_addr, const ngtcp2_pkt_info &pi,
-                const uint8_t *data, size_t datalen);
+                std::span<const uint8_t> data);
   int write_quic();
 #endif // ENABLE_HTTP3
 

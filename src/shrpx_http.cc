@@ -41,7 +41,7 @@ StringRef create_error_html(BlockAllocator &balloc, unsigned int http_status) {
   const auto &error_pages = httpconf.error_pages;
   for (const auto &page : error_pages) {
     if (page.http_status == 0 || page.http_status == http_status) {
-      return StringRef{std::begin(page.content), std::end(page.content)};
+      return StringRef{std::span{page.content}};
     }
   }
 
@@ -49,12 +49,10 @@ StringRef create_error_html(BlockAllocator &balloc, unsigned int http_status) {
   auto reason_phrase = http2::get_reason_phrase(http_status);
 
   return concat_string_ref(
-      balloc, StringRef::from_lit(R"(<!DOCTYPE html><html lang="en"><title>)"),
-      status_string, StringRef::from_lit(" "), reason_phrase,
-      StringRef::from_lit("</title><body><h1>"), status_string,
-      StringRef::from_lit(" "), reason_phrase,
-      StringRef::from_lit("</h1><footer>"), httpconf.server_name,
-      StringRef::from_lit("</footer></body></html>"));
+      balloc, R"(<!DOCTYPE html><html lang="en"><title>)"_sr, status_string,
+      " "_sr, reason_phrase, "</title><body><h1>"_sr, status_string, " "_sr,
+      reason_phrase, "</h1><footer>"_sr, httpconf.server_name,
+      "</footer></body></html>"_sr);
 }
 
 StringRef create_forwarded(BlockAllocator &balloc, int params,
@@ -125,7 +123,7 @@ StringRef create_forwarded(BlockAllocator &balloc, int params,
   --p;
   *p = '\0';
 
-  return StringRef{std::begin(iov), p};
+  return StringRef{std::span{std::begin(iov), p}};
 }
 
 std::string colorizeHeaders(const char *hdrs) {
@@ -146,7 +144,7 @@ std::string colorizeHeaders(const char *hdrs) {
     nhdrs += TTY_HTTP_HD;
     nhdrs.append(p, np);
     nhdrs += TTY_RST;
-    auto redact = util::strieq_l("authorization", StringRef{p, np});
+    auto redact = util::strieq("authorization"_sr, StringRef{p, np});
     p = np;
     np = strchr(p, '\n');
     if (!np) {
@@ -176,8 +174,8 @@ nghttp2_ssize select_padding_callback(nghttp2_session *session,
 StringRef create_affinity_cookie(BlockAllocator &balloc, const StringRef &name,
                                  uint32_t affinity_cookie,
                                  const StringRef &path, bool secure) {
-  static constexpr auto PATH_PREFIX = StringRef::from_lit("; Path=");
-  static constexpr auto SECURE = StringRef::from_lit("; Secure");
+  static constexpr auto PATH_PREFIX = "; Path="_sr;
+  static constexpr auto SECURE = "; Secure"_sr;
   // <name>=<value>[; Path=<path>][; Secure]
   size_t len = name.size() + 1 + 8;
 
@@ -201,14 +199,14 @@ StringRef create_affinity_cookie(BlockAllocator &balloc, const StringRef &name,
     p = std::copy(std::begin(SECURE), std::end(SECURE), p);
   }
   *p = '\0';
-  return StringRef{std::begin(iov), p};
+  return StringRef{std::span{std::begin(iov), p}};
 }
 
 bool require_cookie_secure_attribute(SessionAffinityCookieSecure secure,
                                      const StringRef &scheme) {
   switch (secure) {
   case SessionAffinityCookieSecure::AUTO:
-    return scheme == "https";
+    return scheme == "https"_sr;
   case SessionAffinityCookieSecure::YES:
     return true;
   default:
@@ -264,11 +262,11 @@ StringRef create_altsvc_header_value(BlockAllocator &balloc,
 
   assert(static_cast<size_t>(p - std::begin(iov)) == len);
 
-  return StringRef{std::begin(iov), p};
+  return StringRef{std::span{std::begin(iov), p}};
 }
 
 bool check_http_scheme(const StringRef &scheme, bool encrypted) {
-  return encrypted ? scheme == "https" : scheme == "http";
+  return encrypted ? scheme == "https"_sr : scheme == "http"_sr;
 }
 
 } // namespace http

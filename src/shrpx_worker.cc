@@ -32,7 +32,14 @@
 #include <cstdio>
 #include <memory>
 
-#include <openssl/rand.h>
+#include "ssl_compat.h"
+
+#ifdef NGHTTP2_OPENSSL_IS_WOLFSSL
+#  include <wolfssl/options.h>
+#  include <wolfssl/openssl/rand.h>
+#else // !NGHTTP2_OPENSSL_IS_WOLFSSL
+#  include <openssl/rand.h>
+#endif // !NGHTTP2_OPENSSL_IS_WOLFSSL
 
 #ifdef HAVE_LIBBPF
 #  include <bpf/bpf.h>
@@ -435,6 +442,10 @@ void Worker::run_async() {
     (void)reopen_log_files(get_config()->logging);
     ev_run(loop_);
     delete_log_config();
+
+#  ifdef NGHTTP2_OPENSSL_IS_WOLFSSL
+    wc_ecc_fp_free();
+#  endif // NGHTTP2_OPENSSL_IS_WOLFSSL
   });
 #endif // !NOTHREADS
 }
@@ -555,9 +566,9 @@ void Worker::process_events() {
       faddr = &quic_upstream_addrs_[wev.quic_pkt->upstream_addr_index];
     }
 
-    quic_conn_handler_.handle_packet(
-        faddr, wev.quic_pkt->remote_addr, wev.quic_pkt->local_addr,
-        wev.quic_pkt->pi, wev.quic_pkt->data.data(), wev.quic_pkt->data.size());
+    quic_conn_handler_.handle_packet(faddr, wev.quic_pkt->remote_addr,
+                                     wev.quic_pkt->local_addr, wev.quic_pkt->pi,
+                                     wev.quic_pkt->data);
 
     break;
   }
@@ -854,8 +865,7 @@ int Worker::create_quic_server_socket(UpstreamAddr &faddr) {
   hints.ai_flags |= AI_ADDRCONFIG;
 #  endif // AI_ADDRCONFIG
 
-  auto node =
-      faddr.host == StringRef::from_lit("*") ? nullptr : faddr.host.c_str();
+  auto node = faddr.host == "*"_sr ? nullptr : faddr.host.data();
 
   addrinfo *res, *rp;
   rv = getaddrinfo(node, service.c_str(), &hints, &res);
@@ -1026,7 +1036,7 @@ int Worker::create_quic_server_socket(UpstreamAddr &faddr) {
     if (should_attach_bpf()) {
       auto &bpfconf = config->quic.bpf;
 
-      auto obj = bpf_object__open_file(bpfconf.prog_file.c_str(), nullptr);
+      auto obj = bpf_object__open_file(bpfconf.prog_file.data(), nullptr);
       if (!obj) {
         auto error = errno;
         LOG(FATAL) << "Failed to open bpf object file: "
@@ -1230,13 +1240,13 @@ const UpstreamAddr *Worker::find_quic_upstream_addr(const Address &local_addr) {
     if (faddr.port == 443 || faddr.port == 80) {
       switch (faddr.family) {
       case AF_INET:
-        if (util::streq(faddr.hostport, StringRef::from_lit("0.0.0.0"))) {
+        if (faddr.hostport == "0.0.0.0"_sr) {
           fallback_faddr = &faddr;
         }
 
         break;
       case AF_INET6:
-        if (util::streq(faddr.hostport, StringRef::from_lit("[::]"))) {
+        if (faddr.hostport == "[::]"_sr) {
           fallback_faddr = &faddr;
         }
 
@@ -1247,14 +1257,13 @@ const UpstreamAddr *Worker::find_quic_upstream_addr(const Address &local_addr) {
     } else {
       switch (faddr.family) {
       case AF_INET:
-        if (util::starts_with(faddr.hostport,
-                              StringRef::from_lit("0.0.0.0:"))) {
+        if (util::starts_with(faddr.hostport, "0.0.0.0:"_sr)) {
           fallback_faddr = &faddr;
         }
 
         break;
       case AF_INET6:
-        if (util::starts_with(faddr.hostport, StringRef::from_lit("[::]:"))) {
+        if (util::starts_with(faddr.hostport, "[::]:"_sr)) {
           fallback_faddr = &faddr;
         }
 
@@ -1299,7 +1308,7 @@ size_t match_downstream_addr_group_host(
     auto ep = std::copy(std::begin(host) + 1, std::end(host),
                         std::begin(rev_host_src));
     std::reverse(std::begin(rev_host_src), ep);
-    auto rev_host = StringRef{std::begin(rev_host_src), ep};
+    auto rev_host = StringRef{std::span{std::begin(rev_host_src), ep}};
 
     ssize_t best_group = -1;
     const RNode *last_node = nullptr;
@@ -1333,7 +1342,7 @@ size_t match_downstream_addr_group_host(
     }
   }
 
-  group = router.match(StringRef::from_lit(""), path);
+  group = router.match(""_sr, path);
   if (group != -1) {
     if (LOG_ENABLED(INFO)) {
       LOG(INFO) << "Found pattern with query " << path
@@ -1366,7 +1375,7 @@ size_t match_downstream_addr_group(
   auto path = StringRef{std::begin(raw_path), query};
 
   if (path.empty() || path[0] != '/') {
-    path = StringRef::from_lit("/");
+    path = "/"_sr;
   }
 
   if (hostport.empty()) {
@@ -1400,7 +1409,7 @@ size_t match_downstream_addr_group(
     auto ep = std::copy(std::begin(host), std::end(host), std::begin(low_host));
     *ep = '\0';
     util::inp_strlower(std::begin(low_host), ep);
-    host = StringRef{std::begin(low_host), ep};
+    host = StringRef{std::span{std::begin(low_host), ep}};
   }
   return match_downstream_addr_group_host(routerconf, host, path, groups,
                                           catch_all, balloc);

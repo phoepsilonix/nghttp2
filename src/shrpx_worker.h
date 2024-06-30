@@ -38,8 +38,16 @@
 #  include <future>
 #endif // NOTHREADS
 
-#include <openssl/ssl.h>
-#include <openssl/err.h>
+#include "ssl_compat.h"
+
+#ifdef NGHTTP2_OPENSSL_IS_WOLFSSL
+#  include <wolfssl/options.h>
+#  include <wolfssl/openssl/ssl.h>
+#  include <wolfssl/openssl/err.h>
+#else // !NGHTTP2_OPENSSL_IS_WOLFSSL
+#  include <openssl/ssl.h>
+#  include <openssl/err.h>
+#endif // !NGHTTP2_OPENSSL_IS_WOLFSSL
 
 #include <ev.h>
 
@@ -265,12 +273,12 @@ struct WorkerStat {
 struct QUICPacket {
   QUICPacket(size_t upstream_addr_index, const Address &remote_addr,
              const Address &local_addr, const ngtcp2_pkt_info &pi,
-             const uint8_t *data, size_t datalen)
+             std::span<const uint8_t> data)
       : upstream_addr_index{upstream_addr_index},
         remote_addr{remote_addr},
         local_addr{local_addr},
         pi{pi},
-        data{data, data + datalen} {}
+        data{std::begin(data), std::end(data)} {}
   QUICPacket() : upstream_addr_index{}, remote_addr{}, local_addr{}, pi{} {}
   size_t upstream_addr_index;
   Address remote_addr;

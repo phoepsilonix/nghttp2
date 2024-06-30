@@ -61,11 +61,17 @@
 #include <fstream>
 #include <iomanip>
 
-#include <openssl/evp.h>
+#include "ssl_compat.h"
+
+#ifdef NGHTTP2_OPENSSL_IS_WOLFSSL
+#  include <wolfssl/options.h>
+#  include <wolfssl/openssl/evp.h>
+#else // !NGHTTP2_OPENSSL_IS_WOLFSSL
+#  include <openssl/evp.h>
+#endif // !NGHTTP2_OPENSSL_IS_WOLFSSL
 
 #include <nghttp2/nghttp2.h>
 
-#include "ssl_compat.h"
 #include "timegm.h"
 
 namespace nghttp2 {
@@ -195,7 +201,7 @@ StringRef percent_encode_token(BlockAllocator &balloc,
 
   *p = '\0';
 
-  return StringRef{std::begin(iov), p};
+  return StringRef{std::span{std::begin(iov), p}};
 }
 
 size_t percent_encode_tokenlen(const StringRef &target) {
@@ -241,7 +247,7 @@ StringRef quote_string(BlockAllocator &balloc, const StringRef &target) {
 
   *p = '\0';
 
-  return StringRef{std::begin(iov), p};
+  return StringRef{std::span{std::begin(iov), p}};
 }
 
 size_t quote_stringlen(const StringRef &target) {
@@ -465,13 +471,13 @@ time_t parse_http_date(const StringRef &s) {
   tm tm{};
 #ifdef _WIN32
   // there is no strptime - use std::get_time
-  std::stringstream sstr(s.str());
+  std::stringstream sstr(s.data());
   sstr >> std::get_time(&tm, "%a, %d %b %Y %H:%M:%S GMT");
   if (sstr.fail()) {
     return 0;
   }
 #else  // !_WIN32
-  char *r = strptime(s.c_str(), "%a, %d %b %Y %H:%M:%S GMT", &tm);
+  char *r = strptime(s.data(), "%a, %d %b %Y %H:%M:%S GMT", &tm);
   if (r == 0) {
     return 0;
   }
@@ -481,7 +487,7 @@ time_t parse_http_date(const StringRef &s) {
 
 time_t parse_openssl_asn1_time_print(const StringRef &s) {
   tm tm{};
-  auto r = strptime(s.c_str(), "%b %d %H:%M:%S %Y GMT", &tm);
+  auto r = strptime(s.data(), "%b %d %H:%M:%S %Y GMT", &tm);
   if (r == nullptr) {
     return 0;
   }
@@ -511,7 +517,7 @@ StringRef format_hex(BlockAllocator &balloc, std::span<const uint8_t> s) {
 
   *p = '\0';
 
-  return StringRef{std::begin(iov), p};
+  return StringRef{std::span{std::begin(iov), p}};
 }
 
 void to_token68(std::string &base64str) {
@@ -554,7 +560,7 @@ StringRef to_base64(BlockAllocator &balloc, const StringRef &token68str) {
 
   *p = '\0';
 
-  return StringRef{std::begin(iov), p};
+  return StringRef{std::span{std::begin(iov), p}};
 }
 
 namespace {
@@ -566,10 +572,10 @@ int levenshtein(const char *a, int alen, const char *b, int blen, int swapcost,
                 int subcost, int addcost, int delcost) {
   auto dp = std::vector<std::vector<int>>(3, std::vector<int>(blen + 1));
   for (int i = 0; i <= blen; ++i) {
-    dp[1][i] = i;
+    dp[1][i] = i * addcost;
   }
   for (int i = 1; i <= alen; ++i) {
-    dp[0][0] = i;
+    dp[0][0] = i * delcost;
     for (int j = 1; j <= blen; ++j) {
       dp[0][j] = dp[1][j - 1] + (a[i - 1] == b[j - 1] ? 0 : subcost);
       if (i >= 2 && j >= 2 && a[i - 1] != b[j - 1] && a[i - 2] == b[j - 1] &&
@@ -867,7 +873,7 @@ bool check_path(const std::string &path) {
          path.find('\\') == std::string::npos &&
          path.find("/../") == std::string::npos &&
          path.find("/./") == std::string::npos &&
-         !util::ends_with_l(path, "/..") && !util::ends_with_l(path, "/.");
+         !util::ends_with(path, "/.."_sr) && !util::ends_with(path, "/."_sr);
 }
 
 int64_t to_time64(const timeval &tv) {
@@ -875,8 +881,8 @@ int64_t to_time64(const timeval &tv) {
 }
 
 bool check_h2_is_selected(const StringRef &proto) {
-  return streq(NGHTTP2_H2, proto) || streq(NGHTTP2_H2_16, proto) ||
-         streq(NGHTTP2_H2_14, proto);
+  return NGHTTP2_H2 == proto || NGHTTP2_H2_16 == proto ||
+         NGHTTP2_H2_14 == proto;
 }
 
 namespace {
@@ -1137,58 +1143,63 @@ bool ipv6_numeric_addr(const char *host) {
 }
 
 namespace {
-std::pair<int64_t, size_t> parse_uint_digits(const void *ss, size_t len) {
-  const uint8_t *s = static_cast<const uint8_t *>(ss);
-  int64_t n = 0;
-  size_t i;
-  if (len == 0) {
-    return {-1, 0};
+std::optional<std::pair<int64_t, StringRef>>
+parse_uint_digits(const StringRef &s) {
+  if (s.empty()) {
+    return {};
   }
+
   constexpr int64_t max = std::numeric_limits<int64_t>::max();
-  for (i = 0; i < len; ++i) {
-    if ('0' <= s[i] && s[i] <= '9') {
-      if (n > max / 10) {
-        return {-1, 0};
-      }
-      n *= 10;
-      if (n > max - (s[i] - '0')) {
-        return {-1, 0};
-      }
-      n += s[i] - '0';
-      continue;
+
+  int64_t n = 0;
+  size_t i = 0;
+
+  for (auto c : s) {
+    if ('0' > c || c > '9') {
+      break;
     }
-    break;
+
+    if (n > max / 10) {
+      return {};
+    }
+
+    n *= 10;
+
+    if (n > max - (c - '0')) {
+      return {};
+    }
+
+    n += c - '0';
+
+    ++i;
   }
+
   if (i == 0) {
-    return {-1, 0};
+    return {};
   }
-  return {n, i};
+
+  return std::pair{n, s.substr(i)};
 }
 } // namespace
 
-int64_t parse_uint_with_unit(const char *s) {
-  return parse_uint_with_unit(reinterpret_cast<const uint8_t *>(s), strlen(s));
-}
-
-int64_t parse_uint_with_unit(const StringRef &s) {
-  return parse_uint_with_unit(s.byte(), s.size());
-}
-
-int64_t parse_uint_with_unit(const uint8_t *s, size_t len) {
-  int64_t n;
-  size_t i;
-  std::tie(n, i) = parse_uint_digits(s, len);
-  if (n == -1) {
-    return -1;
+std::optional<int64_t> parse_uint_with_unit(const StringRef &s) {
+  auto r = parse_uint_digits(s);
+  if (!r) {
+    return {};
   }
-  if (i == len) {
+
+  auto [n, rest] = *r;
+
+  if (rest.empty()) {
     return n;
   }
-  if (i + 1 != len) {
-    return -1;
+
+  if (rest.size() != 1) {
+    return {};
   }
+
   int mul = 1;
-  switch (s[i]) {
+  switch (rest[0]) {
   case 'K':
   case 'k':
     mul = 1 << 10;
@@ -1202,94 +1213,81 @@ int64_t parse_uint_with_unit(const uint8_t *s, size_t len) {
     mul = 1 << 30;
     break;
   default:
-    return -1;
+    return {};
   }
+
   constexpr int64_t max = std::numeric_limits<int64_t>::max();
   if (n > max / mul) {
-    return -1;
+    return {};
   }
+
   return n * mul;
 }
 
-int64_t parse_uint(const char *s) {
-  return parse_uint(reinterpret_cast<const uint8_t *>(s), strlen(s));
-}
-
-int64_t parse_uint(const std::string &s) {
-  return parse_uint(reinterpret_cast<const uint8_t *>(s.c_str()), s.size());
-}
-
-int64_t parse_uint(const StringRef &s) {
-  return parse_uint(s.byte(), s.size());
-}
-
-int64_t parse_uint(const uint8_t *s, size_t len) {
-  int64_t n;
-  size_t i;
-  std::tie(n, i) = parse_uint_digits(s, len);
-  if (n == -1 || i != len) {
-    return -1;
+std::optional<int64_t> parse_uint(const StringRef &s) {
+  auto r = parse_uint_digits(s);
+  if (!r || !(*r).second.empty()) {
+    return {};
   }
-  return n;
+
+  return (*r).first;
 }
 
-double parse_duration_with_unit(const char *s) {
-  return parse_duration_with_unit(reinterpret_cast<const uint8_t *>(s),
-                                  strlen(s));
-}
-
-double parse_duration_with_unit(const StringRef &s) {
-  return parse_duration_with_unit(s.byte(), s.size());
-}
-
-double parse_duration_with_unit(const uint8_t *s, size_t len) {
+std::optional<double> parse_duration_with_unit(const StringRef &s) {
   constexpr auto max = std::numeric_limits<int64_t>::max();
-  int64_t n;
-  size_t i;
 
-  std::tie(n, i) = parse_uint_digits(s, len);
-  if (n == -1) {
-    goto fail;
+  auto r = parse_uint_digits(s);
+  if (!r) {
+    return {};
   }
-  if (i == len) {
+
+  auto [n, rest] = *r;
+
+  if (rest.empty()) {
     return static_cast<double>(n);
   }
-  switch (s[i]) {
+
+  switch (rest[0]) {
   case 'S':
   case 's':
     // seconds
-    if (i + 1 != len) {
-      goto fail;
+    if (rest.size() != 1) {
+      return {};
     }
+
     return static_cast<double>(n);
   case 'M':
   case 'm':
-    if (i + 1 == len) {
+    if (rest.size() == 1) {
       // minutes
       if (n > max / 60) {
-        goto fail;
+        return {};
       }
+
       return static_cast<double>(n) * 60;
     }
 
-    if (i + 2 != len || (s[i + 1] != 's' && s[i + 1] != 'S')) {
-      goto fail;
+    if (rest.size() != 2 || (rest[1] != 's' && rest[1] != 'S')) {
+      return {};
     }
+
     // milliseconds
     return static_cast<double>(n) / 1000.;
   case 'H':
   case 'h':
     // hours
-    if (i + 1 != len) {
-      goto fail;
+    if (rest.size() != 1) {
+      return {};
     }
+
     if (n > max / 3600) {
-      goto fail;
+      return {};
     }
+
     return static_cast<double>(n) * 3600;
+  default:
+    return {};
   }
-fail:
-  return std::numeric_limits<double>::infinity();
 }
 
 std::string duration_str(double t) {
@@ -1617,7 +1615,7 @@ StringRef percent_decode(BlockAllocator &balloc, const StringRef &src) {
     *p++ = *first;
   }
   *p = '\0';
-  return StringRef{std::begin(iov), p};
+  return StringRef{std::span{std::begin(iov), p}};
 }
 
 // Returns x**y
@@ -1658,7 +1656,7 @@ int message_digest(uint8_t *res, const EVP_MD *meth, const StringRef &s) {
     return -1;
   }
 
-  rv = EVP_DigestUpdate(ctx, s.c_str(), s.size());
+  rv = EVP_DigestUpdate(ctx, s.data(), s.size());
   if (rv != 1) {
     return -1;
   }
@@ -1696,11 +1694,12 @@ bool is_hex_string(const StringRef &s) {
   return true;
 }
 
-StringRef decode_hex(BlockAllocator &balloc, const StringRef &s) {
+std::span<const uint8_t> decode_hex(BlockAllocator &balloc,
+                                    const StringRef &s) {
   auto iov = make_byte_ref(balloc, s.size() + 1);
   auto p = decode_hex(std::begin(iov), s);
   *p = '\0';
-  return StringRef{std::begin(iov), p};
+  return {std::begin(iov), p};
 }
 
 StringRef extract_host(const StringRef &hostport) {
@@ -1813,7 +1812,7 @@ StringRef rstrip(BlockAllocator &balloc, const StringRef &s) {
     return s;
   }
 
-  return make_string_ref(balloc, StringRef{s.c_str(), s.size() - len});
+  return make_string_ref(balloc, StringRef{s.data(), s.size() - len});
 }
 
 #ifdef ENABLE_HTTP3
@@ -1888,7 +1887,7 @@ uint8_t msghdr_get_ecn(msghdr *msg, int family) {
 }
 
 size_t msghdr_get_udp_gro(msghdr *msg) {
-  uint16_t gso_size = 0;
+  int gso_size = 0;
 
 #  ifdef UDP_GRO
   for (auto cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
@@ -1900,7 +1899,7 @@ size_t msghdr_get_udp_gro(msghdr *msg) {
   }
 #  endif // UDP_GRO
 
-  return gso_size;
+  return static_cast<size_t>(gso_size);
 }
 #endif // ENABLE_HTTP3
 
