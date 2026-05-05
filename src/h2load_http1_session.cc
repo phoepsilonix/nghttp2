@@ -33,6 +33,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <print>
 
 using namespace nghttp2;
 
@@ -214,9 +215,8 @@ Http1Session::on_read(std::span<const uint8_t> data) {
   }
 
   if (htperr != HPE_OK) {
-    std::cerr << "[ERROR] HTTP parse error: "
-              << "(" << llhttp_errno_name(htperr) << ") "
-              << llhttp_get_error_reason(&htp_) << std::endl;
+    std::println(stderr, "[ERROR] HTTP parse error: ({}) {}",
+                 llhttp_errno_name(htperr), llhttp_get_error_reason(&htp_));
     return std::unexpected{Error::HTTP1};
   }
 

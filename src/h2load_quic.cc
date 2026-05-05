@@ -26,7 +26,7 @@
 
 #include <netinet/udp.h>
 
-#include <iostream>
+#include <print>
 
 #if defined(HAVE_LIBNGTCP2_CRYPTO_QUICTLS) ||                                  \
   defined(HAVE_LIBNGTCP2_CRYPTO_LIBRESSL)
@@ -350,15 +350,15 @@ std::expected<void, Error> Client::quic_init(const sockaddr *local_addr,
     SSL_set_connect_state(ssl);
 #if OPENSSL_3_5_0_API
     if (ngtcp2_crypto_ossl_configure_client_session(ssl) != 0) {
-      std::cerr << "ngtcp2_crypto_ossl_configure_client_session failed"
-                << std::endl;
+      std::println(stderr,
+                   "ngtcp2_crypto_ossl_configure_client_session failed");
       return std::unexpected{Error::QUIC};
     }
 
     rv = ngtcp2_crypto_ossl_ctx_new(&quic.ossl_ctx, ssl);
     if (rv != 0) {
-      std::cerr << "ngtcp2_crypto_ossl_ctx_new failed with error code " << rv
-                << std::endl;
+      std::println(stderr,
+                   "ngtcp2_crypto_ossl_ctx_new failed with error code {}", rv);
       return std::unexpected{Error::QUIC};
     }
 #else  // !OPENSSL_3_5_0_API
@@ -366,7 +366,7 @@ std::expected<void, Error> Client::quic_init(const sockaddr *local_addr,
 #endif // !OPENSSL_3_5_0_API
 
     if (config->tls_session && !SSL_set_session(ssl, config->tls_session)) {
-      std::cerr << "Could not set TLS session" << std::endl;
+      std::println(stderr, "Could not set TLS session");
     }
 
     if (!config->tls_session_file.empty()) {
@@ -424,7 +424,7 @@ std::expected<void, Error> Client::quic_init(const sockaddr *local_addr,
     path += ".sqlog";
     quic.qlog_file = fopen(path.c_str(), "w");
     if (quic.qlog_file == nullptr) {
-      std::cerr << "Failed to open a qlog file: " << path << std::endl;
+      std::println(stderr, "Failed to open a qlog file: {}", path);
       return std::unexpected{Error::LIBC};
     }
     settings.qlog_write = qlog_write_cb;
