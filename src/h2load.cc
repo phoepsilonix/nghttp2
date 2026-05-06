@@ -48,6 +48,7 @@
 #include <future>
 #include <random>
 #include <string_view>
+#include <print>
 
 #include "ssl_compat.h"
 
@@ -270,7 +271,7 @@ void rate_period_timeout_w_cb(struct ev_loop *loop, ev_timer *w, int revents) {
     ++worker->nconns_made;
 
     if (!client->connect()) {
-      std::cerr << "client could not connect to host" << std::endl;
+      std::println(stderr, "client could not connect to host");
       client->fail();
     } else {
       if (worker->config->is_timing_based_mode()) {
@@ -559,7 +560,7 @@ std::expected<void, Error> Client::make_socket(addrinfo *addr) {
 #  ifdef UDP_GRO
     int val = 1;
     if (setsockopt(fd, IPPROTO_UDP, UDP_GRO, &val, sizeof(val)) != 0) {
-      std::cerr << "setsockopt UDP_GRO failed" << std::endl;
+      std::println(stderr, "setsockopt UDP_GRO failed");
       return std::unexpected{Error::SYSCALL};
     }
 #  endif // defined(UDP_GRO)
@@ -582,7 +583,7 @@ std::expected<void, Error> Client::make_socket(addrinfo *addr) {
     if (auto rv = quic_init(local_addr.as_sockaddr(), local_addr.size(),
                             addr->ai_addr, addr->ai_addrlen);
         !rv) {
-      std::cerr << "quic_init failed" << std::endl;
+      std::println(stderr, "quic_init failed");
       return rv;
     }
 #endif // defined(ENABLE_HTTP3)
@@ -599,7 +600,7 @@ std::expected<void, Error> Client::make_socket(addrinfo *addr) {
         ssl = SSL_new(worker->ssl_ctx);
 
         if (config.tls_session && !SSL_set_session(ssl, config.tls_session)) {
-          std::cerr << "Could not set TLS session" << std::endl;
+          std::println(stderr, "Could not set TLS session");
         }
 
         if (!config.tls_session_file.empty()) {
@@ -731,7 +732,7 @@ std::expected<void, Error> Client::try_again_or_fail() {
       if (connect()) {
         return {};
       }
-      std::cerr << "client could not connect to host" << std::endl;
+      std::println(stderr, "client could not connect to host");
     }
   }
 
@@ -1310,7 +1311,7 @@ std::expected<void, Error> Client::connection_made() {
       // negotiation result.
       selected_proto = proto;
     } else if (config.is_quic()) {
-      std::cerr << "QUIC requires ALPN negotiation" << std::endl;
+      std::println(stderr, "QUIC requires ALPN negotiation");
       return std::unexpected{Error::ALPN};
     } else {
       std::cout << "No protocol negotiated. Fallback behaviour may be activated"
@@ -1673,7 +1674,7 @@ std::span<const uint8_t> Client::write_udp(const sockaddr *addr,
       return write_udp(addr, addrlen, data, gso_size);
     }
 
-    std::cerr << "sendmsg: errno=" << errno << std::endl;
+    std::println(stderr, "sendmsg: errno={}", errno);
   } else {
     worker->stats.udp_dgram_sent += (data.size() + gso_size - 1) / gso_size;
   }
@@ -1848,7 +1849,7 @@ void Worker::run() {
 
       auto client = std::make_unique<Client>(next_client_id++, this, req_todo);
       if (!client->connect()) {
-        std::cerr << "client could not connect to host" << std::endl;
+        std::println(stderr, "client could not connect to host");
         client->fail();
       } else {
         client.release();
@@ -1921,7 +1922,7 @@ void Worker::write_tls_session(const std::string &path) {
 #ifdef NGHTTP2_OPENSSL_IS_WOLFSSL
   auto datalen = wolfSSL_i2d_SSL_SESSION(tls_session, nullptr);
   if (datalen <= 0) {
-    std::cerr << "Could not write TLS session to " << path << std::endl;
+    std::println(stderr, "Could not write TLS session to {}", path);
     return;
   }
 
@@ -1935,25 +1936,25 @@ void Worker::write_tls_session(const std::string &path) {
 
   auto f = wolfSSL_BIO_new_file(path.c_str(), "w");
   if (!f) {
-    std::cerr << "Could not write TLS session to " << path << std::endl;
+    std::println(stderr, "Could not write TLS session to {}", path);
     return;
   }
 
   if (!wolfSSL_PEM_write_bio(f, "WOLFSSL SESSION PARAMETERS", "", data.get(),
                              datalen)) {
-    std::cerr << "Could not write TLS session to " << path << std::endl;
+    std::println(stderr, "Could not write TLS session to {}", path);
   }
 
   wolfSSL_BIO_free(f);
 #else  // !defined(NGHTTP2_OPENSSL_IS_WOLFSSL)
   auto f = BIO_new_file(path.c_str(), "w");
   if (!f) {
-    std::cerr << "Could not write TLS session to " << path << std::endl;
+    std::println(stderr, "Could not write TLS session to {}", path);
     return;
   }
 
   if (!PEM_write_bio_SSL_SESSION(f, tls_session)) {
-    std::cerr << "Could not write TLS session to " << path << std::endl;
+    std::println(stderr, "Could not write TLS session to {}", path);
   }
 
   BIO_free(f);
@@ -2214,11 +2215,11 @@ void resolve_host() {
   rv =
     getaddrinfo(resolve_host.c_str(), util::utos(port).c_str(), &hints, &res);
   if (rv != 0) {
-    std::cerr << "getaddrinfo() failed: " << gai_strerror(rv) << std::endl;
+    std::println(stderr, "getaddrinfo() failed: {}", gai_strerror(rv));
     exit(EXIT_FAILURE);
   }
   if (res == nullptr) {
-    std::cerr << "No address returned" << std::endl;
+    std::println(stderr, "No address returned");
     exit(EXIT_FAILURE);
   }
   config.addrs = res;
@@ -2275,13 +2276,13 @@ std::vector<std::string> parse_uris(std::vector<std::string>::iterator first,
   std::vector<std::string> reqlines;
 
   if (first == last) {
-    std::cerr << "no URI available" << std::endl;
+    std::println(stderr, "no URI available");
     exit(EXIT_FAILURE);
   }
 
   if (!config.has_base_uri()) {
     if (!parse_base_uri(*first)) {
-      std::cerr << "invalid URI: " << *first << std::endl;
+      std::println(stderr, "invalid URI: {}", *first);
       exit(EXIT_FAILURE);
     }
 
@@ -2294,7 +2295,7 @@ std::vector<std::string> parse_uris(std::vector<std::string>::iterator first,
     auto uri = (*first).c_str();
 
     if (urlparse_parse_url(uri, (*first).size(), 0, &u) != 0) {
-      std::cerr << "invalid URI: " << uri << std::endl;
+      std::println(stderr, "invalid URI: {}", uri);
       exit(EXIT_FAILURE);
     }
 
@@ -2327,15 +2328,18 @@ void read_script_from_file(
   while (std::getline(infile, script_line)) {
     line_count++;
     if (script_line.empty()) {
-      std::cerr << "Empty line detected at line " << line_count
-                << ". Ignoring and continuing." << std::endl;
+      std::println(stderr,
+                   "Empty line detected at line {}. Ignoring and continuing.",
+                   line_count);
       continue;
     }
 
     std::size_t pos = script_line.find("\t");
     if (pos == std::string::npos) {
-      std::cerr << "Invalid line format detected, no tab character at line "
-                << line_count << ". \n\t" << script_line << std::endl;
+      std::println(
+        stderr,
+        "Invalid line format detected, no tab character at line {}. \n\t{}",
+        line_count, script_line);
       exit(EXIT_FAILURE);
     }
 
@@ -2346,10 +2350,10 @@ void read_script_from_file(
     errno = 0;
     if (v < 0.0 || !std::isfinite(v) || end == start || errno != 0) {
       auto error = errno;
-      std::cerr << "Time value error at line " << line_count << ". \n\t"
-                << "value = " << script_line.substr(0, pos) << std::endl;
+      std::println(stderr, "Time value error at line {}. \n\tvalue = {}",
+                   line_count, script_line.substr(0, pos));
       if (error != 0) {
-        std::cerr << "\t" << strerror(error) << std::endl;
+        std::println(stderr, "\t{}", strerror(error));
       }
       exit(EXIT_FAILURE);
     }
@@ -2401,13 +2405,13 @@ int parse_header_table_size(uint32_t &dst, const char *opt,
                             const char *optarg) {
   auto n = util::parse_uint_with_unit(optarg);
   if (!n) {
-    std::cerr << "--" << opt << ": Bad option value: " << optarg << std::endl;
+    std::println(stderr, "--{}: Bad option value: {}", opt, optarg);
     return -1;
   }
   if (*n > std::numeric_limits<uint32_t>::max()) {
-    std::cerr << "--" << opt
-              << ": Value too large.  It should be less than or equal to "
-              << std::numeric_limits<uint32_t>::max() << std::endl;
+    std::println(
+      stderr, "--{}: Value too large.  It should be less than or equal to {}",
+      opt, std::numeric_limits<uint32_t>::max());
     return -1;
   }
 
@@ -2561,7 +2565,7 @@ std::expected<SSL_SESSION *, Error> read_tls_session(const std::string &path) {
 #ifdef NGHTTP2_OPENSSL_IS_WOLFSSL
   auto f = wolfSSL_BIO_new_file(path.c_str(), "r");
   if (!f) {
-    std::cerr << "Could not read TLS session file from " << path << std::endl;
+    std::println(stderr, "Could not read TLS session file from {}", path);
     return std::unexpected{Error::IO};
   }
 
@@ -2572,7 +2576,7 @@ std::expected<SSL_SESSION *, Error> read_tls_session(const std::string &path) {
   long datalen;
 
   if (!wolfSSL_PEM_read_bio(f, &name, &header, &data, &datalen)) {
-    std::cerr << "Could not read TLS session file from " << path << std::endl;
+    std::println(stderr, "Could not read TLS session file from {}", path);
     return std::unexpected{Error::IO};
   }
 
@@ -2583,7 +2587,7 @@ std::expected<SSL_SESSION *, Error> read_tls_session(const std::string &path) {
   });
 
   if ("WOLFSSL SESSION PARAMETERS"sv != name) {
-    std::cerr << "Could not read TLS session file from " << path << std::endl;
+    std::println(stderr, "Could not read TLS session file from {}", path);
     return std::unexpected{Error::INVALID_PEM_TYPE};
   }
 
@@ -2591,7 +2595,7 @@ std::expected<SSL_SESSION *, Error> read_tls_session(const std::string &path) {
 
   auto session = wolfSSL_d2i_SSL_SESSION(nullptr, &pdata, datalen);
   if (!session) {
-    std::cerr << "Could not read TLS session file from " << path << std::endl;
+    std::println(stderr, "Could not read TLS session file from {}", path);
     return std::unexpected{Error::CRYPTO};
   }
 
@@ -2599,7 +2603,7 @@ std::expected<SSL_SESSION *, Error> read_tls_session(const std::string &path) {
 #else  // !defined(NGHTTP2_OPENSSL_IS_WOLFSSL)
   auto f = BIO_new_file(path.c_str(), "r");
   if (!f) {
-    std::cerr << "Could not read TLS session file from " << path << std::endl;
+    std::println(stderr, "Could not read TLS session file from {}", path);
     return std::unexpected{Error::IO};
   }
 
@@ -2607,7 +2611,7 @@ std::expected<SSL_SESSION *, Error> read_tls_session(const std::string &path) {
   BIO_free(f);
 
   if (!session) {
-    std::cerr << "Could not read TLS session file from " << path << std::endl;
+    std::println(stderr, "Could not read TLS session file from {}", path);
     return std::unexpected{Error::IO};
   }
 
@@ -2650,7 +2654,7 @@ void write_result(const std::string &path,
   std::ofstream o{path};
 
   if (!o) {
-    std::cerr << "Could not write the result to file " << path << std::endl;
+    std::println(stderr, "Could not write the result to file {}", path);
     return;
   }
 
@@ -3041,7 +3045,7 @@ int main(int argc, char **argv) {
     case 'n': {
       auto n = util::parse_uint(optarg);
       if (!n) {
-        std::cerr << "-n: bad option value: " << optarg << std::endl;
+        std::println(stderr, "-n: bad option value: {}", optarg);
         exit(EXIT_FAILURE);
       }
       config.nreqs = static_cast<size_t>(*n);
@@ -3051,7 +3055,7 @@ int main(int argc, char **argv) {
     case 'c': {
       auto n = util::parse_uint(optarg);
       if (!n) {
-        std::cerr << "-c: bad option value: " << optarg << std::endl;
+        std::println(stderr, "-c: bad option value: {}", optarg);
         exit(EXIT_FAILURE);
       }
       config.nclients = static_cast<size_t>(*n);
@@ -3062,12 +3066,13 @@ int main(int argc, char **argv) {
       break;
     case 't': {
 #ifdef NOTHREADS
-      std::cerr << "-t: WARNING: Threading disabled at build time, "
-                << "no threads created." << std::endl;
+      std::println(
+        stderr,
+        "-t: WARNING: Threading disabled at build time, no threads created.");
 #else  // !defined(NOTHREADS)
       auto n = util::parse_uint(optarg);
       if (!n) {
-        std::cerr << "-t: bad option value: " << optarg << std::endl;
+        std::println(stderr, "-t: bad option value: {}", optarg);
         exit(EXIT_FAILURE);
       }
       config.nthreads = static_cast<size_t>(*n);
@@ -3077,7 +3082,7 @@ int main(int argc, char **argv) {
     case 'm': {
       auto n = util::parse_uint(optarg);
       if (!n) {
-        std::cerr << "-m: bad option value: " << optarg << std::endl;
+        std::println(stderr, "-m: bad option value: {}", optarg);
         exit(EXIT_FAILURE);
       }
       config.max_concurrent_streams = static_cast<size_t>(*n);
@@ -3087,9 +3092,9 @@ int main(int argc, char **argv) {
     case 'W': {
       auto n = util::parse_uint(optarg);
       if (!n || *n > 30) {
-        std::cerr << "-" << static_cast<char>(c)
-                  << ": specify the integer in the range [0, 30], inclusive"
-                  << std::endl;
+        std::println(stderr,
+                     "-{}: specify the integer in the range [0, 30], inclusive",
+                     static_cast<char>(c));
         exit(EXIT_FAILURE);
       }
       if (c == 'w') {
@@ -3103,16 +3108,15 @@ int main(int argc, char **argv) {
     case 'f': {
       auto n = util::parse_uint_with_unit(optarg);
       if (!n) {
-        std::cerr << "--max-frame-size: bad option value: " << optarg
-                  << std::endl;
+        std::println(stderr, "--max-frame-size: bad option value: {}", optarg);
         exit(EXIT_FAILURE);
       }
       if (static_cast<uint64_t>(*n) < 16_k) {
-        std::cerr << "--max-frame-size: minimum 16384" << std::endl;
+        std::println(stderr, "--max-frame-size: minimum 16384");
         exit(EXIT_FAILURE);
       }
       if (static_cast<uint64_t>(*n) > 16_m - 1) {
-        std::cerr << "--max-frame-size: maximum 16777215" << std::endl;
+        std::println(stderr, "--max-frame-size: maximum 16777215");
         exit(EXIT_FAILURE);
       }
       config.max_frame_size = static_cast<size_t>(*n);
@@ -3123,7 +3127,7 @@ int main(int argc, char **argv) {
       // Skip first possible ':' in the header name
       auto name_end = strchr(optarg + 1, ':');
       if (!name_end || (header[0] == ':' && header + 1 == name_end)) {
-        std::cerr << "-H: invalid header: " << optarg << std::endl;
+        std::println(stderr, "-H: invalid header: {}", optarg);
         exit(EXIT_FAILURE);
       }
       *name_end = 0;
@@ -3134,8 +3138,7 @@ int main(int argc, char **argv) {
       if (*value == 0) {
         // This could also be a valid case for suppressing a header
         // similar to curl
-        std::cerr << "-H: invalid header - value missing: " << optarg
-                  << std::endl;
+        std::println(stderr, "-H: invalid header - value missing: {}", optarg);
         exit(EXIT_FAILURE);
       }
       // Note that there is no processing currently to handle multiple
@@ -3154,7 +3157,7 @@ int main(int argc, char **argv) {
       } else if (util::strieq(NGHTTP2_H1_1, proto)) {
         config.no_tls_proto = Config::PROTO_HTTP1_1;
       } else {
-        std::cerr << "-p: unsupported protocol " << proto << std::endl;
+        std::println(stderr, "-p: unsupported protocol {}", proto);
         exit(EXIT_FAILURE);
       }
       break;
@@ -3162,12 +3165,13 @@ int main(int argc, char **argv) {
     case 'r': {
       auto n = util::parse_uint(optarg);
       if (!n) {
-        std::cerr << "-r: bad option value: " << optarg << std::endl;
+        std::println(stderr, "-r: bad option value: {}", optarg);
         exit(EXIT_FAILURE);
       }
       if (n == 0) {
-        std::cerr << "-r: the rate at which connections are made "
-                  << "must be positive." << std::endl;
+        std::println(
+          stderr,
+          "-r: the rate at which connections are made must be positive.");
         exit(EXIT_FAILURE);
       }
       config.rate = static_cast<size_t>(*n);
@@ -3176,8 +3180,9 @@ int main(int argc, char **argv) {
     case 'T': {
       auto d = util::parse_duration_with_unit(optarg);
       if (!d) {
-        std::cerr << "-T: bad value for the conn_active_timeout wait time: "
-                  << optarg << std::endl;
+        std::println(stderr,
+                     "-T: bad value for the conn_active_timeout wait time: {}",
+                     optarg);
         exit(EXIT_FAILURE);
       }
       config.conn_active_timeout = *d;
@@ -3186,8 +3191,9 @@ int main(int argc, char **argv) {
     case 'N': {
       auto d = util::parse_duration_with_unit(optarg);
       if (!d) {
-        std::cerr << "-N: bad value for the conn_inactivity_timeout wait time: "
-                  << optarg << std::endl;
+        std::println(
+          stderr, "-N: bad value for the conn_inactivity_timeout wait time: {}",
+          optarg);
         exit(EXIT_FAILURE);
       }
       config.conn_inactivity_timeout = *d;
@@ -3207,8 +3213,8 @@ int main(int argc, char **argv) {
                            std::ranges::end(arg)};
 
         if (path.size() == 0 || path.size() + 1 > sizeof(un.sun_path)) {
-          std::cerr << "--base-uri: invalid UNIX domain socket path: " << arg
-                    << std::endl;
+          std::println(stderr,
+                       "--base-uri: invalid UNIX domain socket path: {}", arg);
           exit(EXIT_FAILURE);
         }
 
@@ -3223,7 +3229,7 @@ int main(int argc, char **argv) {
       }
 
       if (!parse_base_uri(arg)) {
-        std::cerr << "--base-uri: invalid base URI: " << arg << std::endl;
+        std::println(stderr, "--base-uri: invalid base URI: {}", arg);
         exit(EXIT_FAILURE);
       }
 
@@ -3233,7 +3239,7 @@ int main(int argc, char **argv) {
     case 'D': {
       auto d = util::parse_duration_with_unit(optarg);
       if (!d) {
-        std::cerr << "-D: value error " << optarg << std::endl;
+        std::println(stderr, "-D: value error {}", optarg);
         exit(EXIT_FAILURE);
       }
       config.duration = *d;
@@ -3267,7 +3273,7 @@ int main(int argc, char **argv) {
         // rate-period
         auto d = util::parse_duration_with_unit(optarg);
         if (!d) {
-          std::cerr << "--rate-period: value error " << optarg << std::endl;
+          std::println(stderr, "--rate-period: value error {}", optarg);
           exit(EXIT_FAILURE);
         }
         config.rate_period = *d;
@@ -3296,7 +3302,7 @@ int main(int argc, char **argv) {
         // --warm-up-time
         auto d = util::parse_duration_with_unit(optarg);
         if (!d) {
-          std::cerr << "--warm-up-time: value error " << optarg << std::endl;
+          std::println(stderr, "--warm-up-time: value error {}", optarg);
           exit(EXIT_FAILURE);
         }
         config.warm_up_time = *d;
@@ -3310,7 +3316,7 @@ int main(int argc, char **argv) {
         // --connect-to
         auto maybe_hostport = util::split_hostport(std::string_view{optarg});
         if (!maybe_hostport) {
-          std::cerr << "--connect-to: Invalid value " << optarg << std::endl;
+          std::println(stderr, "--connect-to: Invalid value {}", optarg);
           exit(EXIT_FAILURE);
         }
 
@@ -3321,7 +3327,7 @@ int main(int argc, char **argv) {
           auto maybe_port = util::parse_uint(p.second);
           if (!maybe_port ||
               *maybe_port > std::numeric_limits<uint16_t>::max()) {
-            std::cerr << "--connect-to: Invalid value " << optarg << std::endl;
+            std::println(stderr, "--connect-to: Invalid value {}", optarg);
             exit(EXIT_FAILURE);
           }
 
@@ -3337,7 +3343,7 @@ int main(int argc, char **argv) {
         auto v = std::strtod(optarg, &end);
         if (end == optarg || *end != '\0' || !std::isfinite(v) ||
             1. / v < 1e-6) {
-          std::cerr << "--rps: Invalid value " << optarg << std::endl;
+          std::println(stderr, "--rps: Invalid value {}", optarg);
           exit(EXIT_FAILURE);
         }
         config.rps = v;
@@ -3363,13 +3369,12 @@ int main(int argc, char **argv) {
         // --max-udp-payload-size
         auto n = util::parse_uint_with_unit(optarg);
         if (!n) {
-          std::cerr << "--max-udp-payload-size: bad option value: " << optarg
-                    << std::endl;
+          std::println(stderr, "--max-udp-payload-size: bad option value: {}",
+                       optarg);
           exit(EXIT_FAILURE);
         }
         if (static_cast<uint64_t>(*n) > 64_k) {
-          std::cerr << "--max-udp-payload-size: must not exceed 65536"
-                    << std::endl;
+          std::println(stderr, "--max-udp-payload-size: must not exceed 65536");
           exit(EXIT_FAILURE);
         }
         config.max_udp_payload_size = static_cast<size_t>(*n);
@@ -3381,8 +3386,8 @@ int main(int argc, char **argv) {
         break;
       case 4:
         // npn-list option
-        std::cerr << "--npn-list: deprecated.  Use --alpn-list instead."
-                  << std::endl;
+        std::println(stderr,
+                     "--npn-list: deprecated.  Use --alpn-list instead.");
         // fall through
       case 19:
         // alpn-list option
@@ -3418,14 +3423,14 @@ int main(int argc, char **argv) {
 
   if (argc == optind) {
     if (config.ifile.empty()) {
-      std::cerr << "no URI or input file given" << std::endl;
+      std::println(stderr, "no URI or input file given");
       exit(EXIT_FAILURE);
     }
   }
 
   if (config.nclients == 0) {
-    std::cerr << "-c: the number of clients must be strictly greater than 0."
-              << std::endl;
+    std::println(stderr,
+                 "-c: the number of clients must be strictly greater than 0.");
     exit(EXIT_FAILURE);
   }
 
@@ -3463,7 +3468,7 @@ int main(int argc, char **argv) {
       } else {
         std::ifstream infile(config.ifile);
         if (!infile) {
-          std::cerr << "cannot read input file: " << config.ifile << std::endl;
+          std::println(stderr, "cannot read input file: {}", config.ifile);
           exit(EXIT_FAILURE);
         }
 
@@ -3475,7 +3480,7 @@ int main(int argc, char **argv) {
       } else {
         std::ifstream infile(config.ifile);
         if (!infile) {
-          std::cerr << "cannot read input file: " << config.ifile << std::endl;
+          std::println(stderr, "cannot read input file: {}", config.ifile);
           exit(EXIT_FAILURE);
         }
 
@@ -3484,10 +3489,11 @@ int main(int argc, char **argv) {
 
       if (nreqs_set_manually) {
         if (config.nreqs > uris.size()) {
-          std::cerr << "-n: the number of requests must be less than or equal "
-                       "to the number of timing script entries. Setting number "
-                       "of requests to "
-                    << uris.size() << std::endl;
+          std::println(
+            stderr,
+            "-n: the number of requests must be less than or equal to the "
+            "number of timing script entries. Setting number of requests to {}",
+            uris.size());
 
           config.nreqs = uris.size();
         }
@@ -3500,57 +3506,58 @@ int main(int argc, char **argv) {
   }
 
   if (reqlines.empty()) {
-    std::cerr << "No URI given" << std::endl;
+    std::println(stderr, "No URI given");
     exit(EXIT_FAILURE);
   }
 
   if (config.is_timing_based_mode() && config.is_rate_mode()) {
-    std::cerr << "-r, -D: they are mutually exclusive." << std::endl;
+    std::println(stderr, "-r, -D: they are mutually exclusive.");
     exit(EXIT_FAILURE);
   }
 
   if (config.timing_script && config.rps_enabled()) {
-    std::cerr << "--timing-script-file, --rps: they are mutually exclusive."
-              << std::endl;
+    std::println(stderr,
+                 "--timing-script-file, --rps: they are mutually exclusive.");
     exit(EXIT_FAILURE);
   }
 
   if (config.nreqs == 0 && !config.is_timing_based_mode()) {
-    std::cerr << "-n: the number of requests must be strictly greater than 0 "
-                 "if timing-based test is not being run."
-              << std::endl;
+    std::println(stderr, "-n: the number of requests must be strictly greater "
+                         "than 0 if timing-based test is not being run.");
     exit(EXIT_FAILURE);
   }
 
   if (config.max_concurrent_streams == 0) {
-    std::cerr << "-m: the max concurrent streams must be strictly greater "
-              << "than 0." << std::endl;
+    std::println(
+      stderr,
+      "-m: the max concurrent streams must be strictly greater than 0.");
     exit(EXIT_FAILURE);
   }
 
   if (config.nthreads == 0) {
-    std::cerr << "-t: the number of threads must be strictly greater than 0."
-              << std::endl;
+    std::println(stderr,
+                 "-t: the number of threads must be strictly greater than 0.");
     exit(EXIT_FAILURE);
   }
 
   if (config.nthreads > std::thread::hardware_concurrency()) {
-    std::cerr << "-t: warning: the number of threads is greater than hardware "
-              << "cores." << std::endl;
+    std::println(
+      stderr,
+      "-t: warning: the number of threads is greater than hardware cores.");
   }
 
   // With timing script, we don't distribute config.nreqs to each
   // client or thread.
   if (!config.timing_script && config.nreqs < config.nclients &&
       !config.is_timing_based_mode()) {
-    std::cerr << "-n, -c: the number of requests must be greater than or "
-              << "equal to the clients." << std::endl;
+    std::println(stderr, "-n, -c: the number of requests must be greater than "
+                         "or equal to the clients.");
     exit(EXIT_FAILURE);
   }
 
   if (config.nclients < config.nthreads) {
-    std::cerr << "-c, -t: the number of clients must be greater than or equal "
-              << "to the number of threads." << std::endl;
+    std::println(stderr, "-c, -t: the number of clients must be greater than "
+                         "or equal to the number of threads.");
     exit(EXIT_FAILURE);
   }
 
@@ -3560,15 +3567,14 @@ int main(int argc, char **argv) {
 
   if (config.is_rate_mode()) {
     if (config.rate < config.nthreads) {
-      std::cerr << "-r, -t: the connection rate must be greater than or equal "
-                << "to the number of threads." << std::endl;
+      std::println(stderr, "-r, -t: the connection rate must be greater than "
+                           "or equal to the number of threads.");
       exit(EXIT_FAILURE);
     }
 
     if (config.rate > config.nclients) {
-      std::cerr << "-r, -c: the connection rate must be smaller than or equal "
-                   "to the number of clients."
-                << std::endl;
+      std::println(stderr, "-r, -c: the connection rate must be smaller than "
+                           "or equal to the number of clients.");
       exit(EXIT_FAILURE);
     }
   }
@@ -3576,19 +3582,19 @@ int main(int argc, char **argv) {
   if (!datafile.empty()) {
     config.data_fd = open(datafile.c_str(), O_RDONLY | O_BINARY);
     if (config.data_fd == -1) {
-      std::cerr << "-d: Could not open file " << datafile << std::endl;
+      std::println(stderr, "-d: Could not open file {}", datafile);
       exit(EXIT_FAILURE);
     }
     struct stat data_stat;
     if (fstat(config.data_fd, &data_stat) == -1) {
-      std::cerr << "-d: Could not stat file " << datafile << std::endl;
+      std::println(stderr, "-d: Could not stat file {}", datafile);
       exit(EXIT_FAILURE);
     }
     config.data_length = data_stat.st_size;
     auto addr = mmap(nullptr, static_cast<size_t>(config.data_length),
                      PROT_READ, MAP_SHARED, config.data_fd, 0);
     if (addr == MAP_FAILED) {
-      std::cerr << "-d: Could not mmap file " << datafile << std::endl;
+      std::println(stderr, "-d: Could not mmap file {}", datafile);
       exit(EXIT_FAILURE);
     }
     config.data = static_cast<uint8_t *>(addr);
@@ -3598,14 +3604,14 @@ int main(int argc, char **argv) {
     config.log_fd = open(logfile.c_str(), O_WRONLY | O_CREAT | O_APPEND,
                          S_IRUSR | S_IWUSR | S_IRGRP);
     if (config.log_fd == -1) {
-      std::cerr << "--log-file: Could not open file " << logfile << std::endl;
+      std::println(stderr, "--log-file: Could not open file {}", logfile);
       exit(EXIT_FAILURE);
     }
   }
 
   if (!config.qlog_file_base.empty() && !config.is_quic()) {
-    std::cerr << "Warning: --qlog-file-base: only effective in quic, ignoring."
-              << std::endl;
+    std::println(
+      stderr, "Warning: --qlog-file-base: only effective in quic, ignoring.");
   }
 
   struct sigaction act{};
@@ -3616,14 +3622,14 @@ int main(int argc, char **argv) {
 #  if defined(HAVE_LIBNGTCP2_CRYPTO_QUICTLS) ||                                \
     defined(HAVE_LIBNGTCP2_CRYPTO_LIBRESSL)
   if (ngtcp2_crypto_quictls_init() != 0) {
-    std::cerr << "ngtcp2_crypto_quictls_init failed" << std::endl;
+    std::println(stderr, "ngtcp2_crypto_quictls_init failed");
     exit(EXIT_FAILURE);
   }
 #  endif // defined(HAVE_LIBNGTCP2_CRYPTO_QUICTLS) ||
          // defined(HAVE_LIBNGTCP2_CRYPTO_LIBRESSL)
 #  ifdef HAVE_LIBNGTCP2_CRYPTO_OSSL
   if (ngtcp2_crypto_ossl_init() != 0) {
-    std::cerr << "ngtcp2_crypto_ossl_init failed" << std::endl;
+    std::println(stderr, "ngtcp2_crypto_ossl_init failed");
     exit(EXIT_FAILURE);
   }
 #  endif // defined(HAVE_LIBNGTCP2_CRYPTO_OSSL)
@@ -3631,8 +3637,8 @@ int main(int argc, char **argv) {
 
   auto ssl_ctx = SSL_CTX_new(TLS_client_method());
   if (!ssl_ctx) {
-    std::cerr << "Failed to create SSL_CTX: "
-              << ERR_error_string(ERR_get_error(), nullptr) << std::endl;
+    std::println(stderr, "Failed to create SSL_CTX: {}",
+                 ERR_error_string(ERR_get_error(), nullptr));
     exit(EXIT_FAILURE);
   }
 
@@ -3656,23 +3662,23 @@ int main(int argc, char **argv) {
 #  if defined(HAVE_LIBNGTCP2_CRYPTO_QUICTLS) ||                                \
     defined(HAVE_LIBNGTCP2_CRYPTO_LIBRESSL)
     if (ngtcp2_crypto_quictls_configure_client_context(ssl_ctx) != 0) {
-      std::cerr << "ngtcp2_crypto_quictls_configure_client_context failed"
-                << std::endl;
+      std::println(stderr,
+                   "ngtcp2_crypto_quictls_configure_client_context failed");
       exit(EXIT_FAILURE);
     }
 #  endif // defined(HAVE_LIBNGTCP2_CRYPTO_QUICTLS) ||
          // defined(HAVE_LIBNGTCP2_CRYPTO_LIBRESSL)
 #  ifdef HAVE_LIBNGTCP2_CRYPTO_BORINGSSL
     if (ngtcp2_crypto_boringssl_configure_client_context(ssl_ctx) != 0) {
-      std::cerr << "ngtcp2_crypto_boringssl_configure_client_context failed"
-                << std::endl;
+      std::println(stderr,
+                   "ngtcp2_crypto_boringssl_configure_client_context failed");
       exit(EXIT_FAILURE);
     }
 #  endif // defined(HAVE_LIBNGTCP2_CRYPTO_BORINGSSL)
 #  ifdef HAVE_LIBNGTCP2_CRYPTO_WOLFSSL
     if (ngtcp2_crypto_wolfssl_configure_client_context(ssl_ctx) != 0) {
-      std::cerr << "ngtcp2_crypto_wolfssl_configure_client_context failed"
-                << std::endl;
+      std::println(stderr,
+                   "ngtcp2_crypto_wolfssl_configure_client_context failed");
       exit(EXIT_FAILURE);
     }
 #  endif // defined(HAVE_LIBNGTCP2_CRYPTO_WOLFSSL)
@@ -3680,23 +3686,22 @@ int main(int argc, char **argv) {
   } else if (!nghttp2::tls::ssl_ctx_set_proto_versions(
                ssl_ctx, nghttp2::tls::NGHTTP2_TLS_MIN_VERSION,
                nghttp2::tls::NGHTTP2_TLS_MAX_VERSION)) {
-    std::cerr << "Could not set TLS versions" << std::endl;
+    std::println(stderr, "Could not set TLS versions");
     exit(EXIT_FAILURE);
   }
 
   if (SSL_CTX_set_cipher_list(ssl_ctx, config.ciphers.c_str()) == 0) {
-    std::cerr << "SSL_CTX_set_cipher_list with " << config.ciphers
-              << " failed: " << ERR_error_string(ERR_get_error(), nullptr)
-              << std::endl;
+    std::println(stderr, "SSL_CTX_set_cipher_list with {} failed: {}",
+                 config.ciphers, ERR_error_string(ERR_get_error(), nullptr));
     exit(EXIT_FAILURE);
   }
 
 #if defined(NGHTTP2_GENUINE_OPENSSL) ||                                        \
   defined(NGHTTP2_OPENSSL_IS_LIBRESSL) || defined(NGHTTP2_OPENSSL_IS_WOLFSSL)
   if (SSL_CTX_set_ciphersuites(ssl_ctx, config.tls13_ciphers.c_str()) == 0) {
-    std::cerr << "SSL_CTX_set_ciphersuites with " << config.tls13_ciphers
-              << " failed: " << ERR_error_string(ERR_get_error(), nullptr)
-              << std::endl;
+    std::println(stderr, "SSL_CTX_set_ciphersuites with {} failed: {}",
+                 config.tls13_ciphers,
+                 ERR_error_string(ERR_get_error(), nullptr));
     exit(EXIT_FAILURE);
   }
 #endif // defined(NGHTTP2_GENUINE_OPENSSL) ||
@@ -3704,7 +3709,7 @@ int main(int argc, char **argv) {
        // defined(NGHTTP2_OPENSSL_IS_WOLFSSL)
 
   if (SSL_CTX_set1_groups_list(ssl_ctx, config.groups.c_str()) != 1) {
-    std::cerr << "SSL_CTX_set1_groups_list failed" << std::endl;
+    std::println(stderr, "SSL_CTX_set1_groups_list failed");
     exit(EXIT_FAILURE);
   }
 
@@ -3717,7 +3722,7 @@ int main(int argc, char **argv) {
                           static_cast<uint32_t>(proto_list.size()));
 
   if (!tls::setup_keylog_callback(ssl_ctx)) {
-    std::cerr << "Failed to setup keylog" << std::endl;
+    std::println(stderr, "Failed to setup keylog");
 
     exit(EXIT_FAILURE);
   }
@@ -3732,7 +3737,7 @@ int main(int argc, char **argv) {
   if (!SSL_CTX_add_cert_compression_alg(
         ssl_ctx, nghttp2::tls::CERTIFICATE_COMPRESSION_ALGO_BROTLI,
         nghttp2::tls::cert_compress, nghttp2::tls::cert_decompress)) {
-    std::cerr << "SSL_CTX_add_cert_compression_alg failed" << std::endl;
+    std::println(stderr, "SSL_CTX_add_cert_compression_alg failed");
     exit(EXIT_FAILURE);
   }
 #endif // defined(NGHTTP2_OPENSSL_IS_BORINGSSL) &&
@@ -3828,8 +3833,9 @@ int main(int argc, char **argv) {
 
   // Don't DOS our server!
   if (config.host == "nghttp2.org") {
-    std::cerr << "Using h2load against public server " << config.host
-              << " should be prohibited." << std::endl;
+    std::println(stderr,
+                 "Using h2load against public server {} should be prohibited.",
+                 config.host);
     exit(EXIT_FAILURE);
   }
 

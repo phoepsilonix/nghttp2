@@ -25,6 +25,7 @@
 #include "h2load_http3_session.h"
 
 #include <iostream>
+#include <print>
 
 #include <ngtcp2/ngtcp2.h>
 
@@ -251,8 +252,8 @@ std::expected<void, Error> Http3Session::stop_sending(int64_t stream_id,
   auto rv = ngtcp2_conn_shutdown_stream_read(client_->quic.conn, 0, stream_id,
                                              app_error_code);
   if (rv != 0) {
-    std::cerr << "ngtcp2_conn_shutdown_stream_read: " << ngtcp2_strerror(rv)
-              << std::endl;
+    std::println(stderr, "ngtcp2_conn_shutdown_stream_read: {}",
+                 ngtcp2_strerror(rv));
     return std::unexpected{Error::QUIC};
   }
   return {};
@@ -274,8 +275,8 @@ std::expected<void, Error> Http3Session::reset_stream(int64_t stream_id,
   auto rv = ngtcp2_conn_shutdown_stream_write(client_->quic.conn, 0, stream_id,
                                               app_error_code);
   if (rv != 0) {
-    std::cerr << "ngtcp2_conn_shutdown_stream_write: " << ngtcp2_strerror(rv)
-              << std::endl;
+    std::println(stderr, "ngtcp2_conn_shutdown_stream_write: {}",
+                 ngtcp2_strerror(rv));
     return std::unexpected{Error::QUIC};
   }
   return {};
@@ -373,8 +374,7 @@ std::expected<void, Error> Http3Session::init_conn() {
 
   rv = nghttp3_conn_client_new(&conn_, &callbacks, &settings, mem, this);
   if (rv != 0) {
-    std::cerr << "nghttp3_conn_client_new: " << nghttp3_strerror(rv)
-              << std::endl;
+    std::println(stderr, "nghttp3_conn_client_new: {}", nghttp3_strerror(rv));
     return std::unexpected{Error::HTTP3};
   }
 
@@ -383,15 +383,15 @@ std::expected<void, Error> Http3Session::init_conn() {
   rv =
     ngtcp2_conn_open_uni_stream(client_->quic.conn, &ctrl_stream_id, nullptr);
   if (rv != 0) {
-    std::cerr << "ngtcp2_conn_open_uni_stream: " << ngtcp2_strerror(rv)
-              << std::endl;
+    std::println(stderr, "ngtcp2_conn_open_uni_stream: {}",
+                 ngtcp2_strerror(rv));
     return std::unexpected{Error::QUIC};
   }
 
   rv = nghttp3_conn_bind_control_stream(conn_, ctrl_stream_id);
   if (rv != 0) {
-    std::cerr << "nghttp3_conn_bind_control_stream: " << nghttp3_strerror(rv)
-              << std::endl;
+    std::println(stderr, "nghttp3_conn_bind_control_stream: {}",
+                 nghttp3_strerror(rv));
     return std::unexpected{Error::HTTP3};
   }
 
@@ -400,24 +400,24 @@ std::expected<void, Error> Http3Session::init_conn() {
   rv = ngtcp2_conn_open_uni_stream(client_->quic.conn, &qpack_enc_stream_id,
                                    nullptr);
   if (rv != 0) {
-    std::cerr << "ngtcp2_conn_open_uni_stream: " << ngtcp2_strerror(rv)
-              << std::endl;
+    std::println(stderr, "ngtcp2_conn_open_uni_stream: {}",
+                 ngtcp2_strerror(rv));
     return std::unexpected{Error::QUIC};
   }
 
   rv = ngtcp2_conn_open_uni_stream(client_->quic.conn, &qpack_dec_stream_id,
                                    nullptr);
   if (rv != 0) {
-    std::cerr << "ngtcp2_conn_open_uni_stream: " << ngtcp2_strerror(rv)
-              << std::endl;
+    std::println(stderr, "ngtcp2_conn_open_uni_stream: {}",
+                 ngtcp2_strerror(rv));
     return std::unexpected{Error::QUIC};
   }
 
   rv = nghttp3_conn_bind_qpack_streams(conn_, qpack_enc_stream_id,
                                        qpack_dec_stream_id);
   if (rv != 0) {
-    std::cerr << "nghttp3_conn_bind_qpack_streams: " << nghttp3_strerror(rv)
-              << std::endl;
+    std::println(stderr, "nghttp3_conn_bind_qpack_streams: {}",
+                 nghttp3_strerror(rv));
     return std::unexpected{Error::HTTP3};
   }
 
@@ -432,8 +432,8 @@ Http3Session::read_stream(uint32_t flags, int64_t stream_id,
                               flags & NGTCP2_STREAM_DATA_FLAG_FIN,
                               ngtcp2_conn_get_timestamp(client_->quic.conn));
   if (nconsumed < 0) {
-    std::cerr << "nghttp3_conn_read_stream2: "
-              << nghttp3_strerror(static_cast<int>(nconsumed)) << std::endl;
+    std::println(stderr, "nghttp3_conn_read_stream2: {}",
+                 nghttp3_strerror(static_cast<int>(nconsumed)));
     ngtcp2_ccerr_set_application_error(
       &client_->quic.last_error,
       nghttp3_err_infer_quic_app_error_code(static_cast<int>(nconsumed)),
