@@ -45,6 +45,7 @@
 #include <iostream>
 #include <iomanip>
 #include <tuple>
+#include <print>
 
 #include "ssl_compat.h"
 
@@ -112,9 +113,8 @@ Config config;
 
 namespace {
 void print_protocol_nego_error() {
-  std::cerr << "[ERROR] HTTP/2 protocol was not selected."
-            << " (nghttp2 expects " << NGHTTP2_PROTO_VERSION_ID << ")"
-            << std::endl;
+  std::println(stderr, "[ERROR] HTTP/2 protocol was not selected. (nghttp2 "
+                       "expects " NGHTTP2_PROTO_VERSION_ID ")");
 }
 } // namespace
 
@@ -336,8 +336,8 @@ void continue_timeout_cb(struct ev_loop *loop, ev_timer *w, int revents) {
                                req->stream_id, req->data_prd);
 
   if (error) {
-    std::cerr << "[ERROR] nghttp2_submit_data2() returned error: "
-              << nghttp2_strerror(error) << std::endl;
+    std::println(stderr, "[ERROR] nghttp2_submit_data2() returned error: {}",
+                 nghttp2_strerror(error));
     nghttp2_submit_rst_stream(client->session, NGHTTP2_FLAG_NONE,
                               req->stream_id, NGHTTP2_INTERNAL_ERROR);
   }
@@ -368,7 +368,7 @@ namespace {
 int htp_msg_begincb(llhttp_t *htp) {
   if (config.verbose) {
     print_timer();
-    std::cout << " HTTP Upgrade response" << std::endl;
+    std::println(" HTTP Upgrade response");
   }
   return 0;
 }
@@ -474,10 +474,9 @@ submit_request(HttpClient *client, const Headers &headers, Request *req) {
   }
 
   if (stream_id < 0) {
-    std::cerr << "[ERROR] nghttp2_submit_"
-              << (expect_continue ? "headers" : "request2")
-              << "() returned error: " << nghttp2_strerror(stream_id)
-              << std::endl;
+    std::println(stderr, "[ERROR] nghttp2_submit_{}() returned error: {}",
+                 expect_continue ? "headers" : "request2",
+                 nghttp2_strerror(stream_id));
     return std::unexpected{Error::HTTP2};
   }
 
@@ -522,7 +521,7 @@ void writecb(struct ev_loop *loop, ev_io *w, int revents) {
 namespace {
 void timeoutcb(struct ev_loop *loop, ev_timer *w, int revents) {
   auto client = static_cast<HttpClient *>(w->data);
-  std::cerr << "[ERROR] Timeout" << std::endl;
+  std::println(stderr, "[ERROR] Timeout");
   client->disconnect();
 }
 } // namespace
@@ -598,12 +597,11 @@ std::expected<void, Error> HttpClient::resolve_host(const std::string &host,
   };
   rv = getaddrinfo(host.c_str(), util::utos(port).c_str(), &hints, &addrs);
   if (rv != 0) {
-    std::cerr << "[ERROR] getaddrinfo() failed: " << gai_strerror(rv)
-              << std::endl;
+    std::println(stderr, "[ERROR] getaddrinfo() failed: {}", gai_strerror(rv));
     return std::unexpected{Error::LIBC};
   }
   if (addrs == nullptr) {
-    std::cerr << "[ERROR] No address returned" << std::endl;
+    std::println(stderr, "[ERROR] No address returned");
     return std::unexpected{Error::INTERNAL};
   }
   next_addr = addrs;
@@ -633,8 +631,8 @@ std::expected<void, Error> HttpClient::initiate_connection() {
       // We are establishing TLS connection.
       ssl = SSL_new(ssl_ctx);
       if (!ssl) {
-        std::cerr << "[ERROR] SSL_new() failed: "
-                  << ERR_error_string(ERR_get_error(), nullptr) << std::endl;
+        std::println(stderr, "[ERROR] SSL_new() failed: {}",
+                     ERR_error_string(ERR_get_error(), nullptr));
         return std::unexpected{Error::CRYPTO};
       }
 
@@ -800,17 +798,15 @@ std::expected<void, Error> HttpClient::write_clear() {
 
 void HttpClient::connect_fail() {
   if (state == ClientState::IDLE) {
-    std::cerr << "[ERROR] Could not connect to the address "
-              << util::numeric_name(cur_addr->ai_addr, cur_addr->ai_addrlen)
-              << std::endl;
+    std::println(stderr, "[ERROR] Could not connect to the address {}",
+                 util::numeric_name(cur_addr->ai_addr, cur_addr->ai_addrlen));
   }
   auto cur_state = state;
   disconnect();
   if (cur_state == ClientState::IDLE) {
     if (initiate_connection()) {
-      std::cerr << "Trying next address "
-                << util::numeric_name(cur_addr->ai_addr, cur_addr->ai_addrlen)
-                << std::endl;
+      std::println(stderr, "Trying next address {}",
+                   util::numeric_name(cur_addr->ai_addr, cur_addr->ai_addrlen));
     }
   }
 }
@@ -822,7 +818,7 @@ std::expected<void, Error> HttpClient::connected() {
 
   if (config.verbose) {
     print_timer();
-    std::cout << " Connected" << std::endl;
+    std::println(" Connected");
   }
 
   state = ClientState::CONNECTED;
@@ -975,7 +971,7 @@ std::expected<void, Error> HttpClient::on_upgrade_connect() {
 
   if (config.verbose) {
     print_timer();
-    std::cout << " HTTP Upgrade request\n" << req << std::endl;
+    std::println(" HTTP Upgrade request\n{}", req);
   }
 
   if (!reqvec[0]->data_prd) {
@@ -1002,14 +998,13 @@ HttpClient::on_upgrade_read(std::span<const uint8_t> data) {
                                        data.data());
 
   if (config.verbose) {
-    std::cout.write(reinterpret_cast<const char *>(data.data()),
-                    static_cast<std::streamsize>(nread));
+    fwrite(data.data(), 1, nread, stdout);
   }
 
   if (htperr != HPE_OK && htperr != HPE_PAUSED_UPGRADE) {
-    std::cerr << "[ERROR] Failed to parse HTTP Upgrade response header: "
-              << "(" << llhttp_errno_name(htperr) << ") "
-              << llhttp_get_error_reason(htp.get()) << std::endl;
+    std::println(
+      stderr, "[ERROR] Failed to parse HTTP Upgrade response header: ({}) {}",
+      llhttp_errno_name(htperr), llhttp_get_error_reason(htp.get()));
     return std::unexpected{Error::HTTP1};
   }
 
@@ -1018,18 +1013,18 @@ HttpClient::on_upgrade_read(std::span<const uint8_t> data) {
   }
 
   if (config.verbose) {
-    std::cout << std::endl;
+    std::println("");
   }
 
   if (upgrade_response_status_code != 101) {
-    std::cerr << "[ERROR] HTTP Upgrade failed" << std::endl;
+    std::println(stderr, "[ERROR] HTTP Upgrade failed");
 
     return std::unexpected{Error::INTERNAL};
   }
 
   if (config.verbose) {
     print_timer();
-    std::cout << " HTTP Upgrade success" << std::endl;
+    std::println(" HTTP Upgrade success");
   }
 
   on_readfn = &HttpClient::on_read;
@@ -1063,7 +1058,7 @@ std::expected<void, Error> HttpClient::connection_made() {
     if (next_proto) {
       auto proto = as_string_view(next_proto, next_proto_len);
       if (config.verbose) {
-        std::cout << "The negotiated protocol: " << proto << std::endl;
+        std::println("The negotiated protocol: {}", proto);
       }
       if (!util::check_h2_is_selected(proto)) {
         next_proto = nullptr;
@@ -1095,8 +1090,9 @@ std::expected<void, Error> HttpClient::connection_made() {
                                   settings_payloadlen, head_request,
                                   stream_user_data);
     if (rv != 0) {
-      std::cerr << "[ERROR] nghttp2_session_upgrade() returned error: "
-                << nghttp2_strerror(rv) << std::endl;
+      std::println(stderr,
+                   "[ERROR] nghttp2_session_upgrade() returned error: {}",
+                   nghttp2_strerror(rv));
       return std::unexpected{Error::HTTP2};
     }
     if (stream_user_data) {
@@ -1148,8 +1144,9 @@ std::expected<void, Error> HttpClient::on_read(std::span<const uint8_t> data) {
 
   auto rv = nghttp2_session_mem_recv2(session, data.data(), data.size());
   if (rv < 0) {
-    std::cerr << "[ERROR] nghttp2_session_mem_recv2() returned error: "
-              << nghttp2_strerror(static_cast<int>(rv)) << std::endl;
+    std::println(stderr,
+                 "[ERROR] nghttp2_session_mem_recv2() returned error: {}",
+                 nghttp2_strerror(static_cast<int>(rv)));
     return std::unexpected{Error::HTTP2};
   }
 
@@ -1174,8 +1171,8 @@ std::expected<void, Error> HttpClient::on_write() {
     const uint8_t *data;
     auto len = nghttp2_session_mem_send2(session, &data);
     if (len < 0) {
-      std::cerr << "[ERROR] nghttp2_session_send2() returned error: "
-                << nghttp2_strerror(static_cast<int>(len)) << std::endl;
+      std::println(stderr, "[ERROR] nghttp2_session_send2() returned error: {}",
+                   nghttp2_strerror(static_cast<int>(len)));
       return std::unexpected{Error::HTTP2};
     }
 
@@ -1226,8 +1223,8 @@ std::expected<void, Error> HttpClient::tls_handshake() {
   if (config.verify_peer) {
     auto verify_res = SSL_get_verify_result(ssl);
     if (verify_res != X509_V_OK) {
-      std::cerr << "[WARNING] Certificate verification failed: "
-                << X509_verify_cert_error_string(verify_res) << std::endl;
+      std::println(stderr, "[WARNING] Certificate verification failed: {}",
+                   X509_verify_cert_error_string(verify_res));
     }
   }
 
@@ -1649,8 +1646,7 @@ int on_data_chunk_recv_callback(nghttp2_session *session, uint8_t flags,
       out = out.first(outlen);
 
       if (!config.null_out) {
-        std::cout.write(reinterpret_cast<const char *>(out.data()),
-                        static_cast<std::streamsize>(out.size()));
+        fwrite(out.data(), 1, out.size(), stdout);
       }
 
       update_html_parser(client, req, out, 0);
@@ -1661,8 +1657,7 @@ int on_data_chunk_recv_callback(nghttp2_session *session, uint8_t flags,
   }
 
   if (!config.null_out) {
-    std::cout.write(reinterpret_cast<const char *>(chunk.data()),
-                    static_cast<std::streamsize>(chunk.size()));
+    fwrite(chunk.data(), 1, chunk.size(), stdout);
   }
 
   update_html_parser(client, req, chunk, 0);
@@ -2039,8 +2034,8 @@ int on_frame_not_send_callback(nghttp2_session *session,
     return 0;
   }
 
-  std::cerr << "[ERROR] request " << req->uri
-            << " failed: " << nghttp2_strerror(lib_error_code) << std::endl;
+  std::println(stderr, "[ERROR] request {} failed: {}", req->uri,
+               nghttp2_strerror(lib_error_code));
 
   return 0;
 }
@@ -2079,7 +2074,7 @@ struct RequestResult {
 
 namespace {
 void print_stats(const HttpClient &client) {
-  std::cout << "***** Statistics *****" << std::endl;
+  std::println("***** Statistics *****");
 
   std::vector<Request *> reqs;
   reqs.reserve(client.reqvec.size());
@@ -2097,7 +2092,7 @@ void print_stats(const HttpClient &client) {
             ltiming.request_start_time < rtiming.request_start_time);
   });
 
-  std::cout << R"(
+  std::println(R"(
 Request timing:
   responseEnd: the  time  when  last  byte of  response  was  received
                relative to connectEnd
@@ -2114,8 +2109,7 @@ see http://www.w3.org/TR/resource-timing/#processing-model
 
 sorted by 'complete'
 
-id  responseEnd requestStart  process code size request path)"
-            << std::endl;
+id  responseEnd requestStart  process code size request path)");
 
   const auto &base = client.timing.connect_end_time;
   for (const auto &req : reqs) {
@@ -2127,14 +2121,12 @@ id  responseEnd requestStart  process code size request path)"
       req->timing.response_end_time - req->timing.request_start_time);
     auto pushed = req->stream_id % 2 == 0;
 
-    std::cout << std::setw(3) << req->stream_id << " " << std::setw(11)
-              << ("+" + util::format_duration(response_end)) << " "
-              << (pushed ? "*" : " ") << std::setw(11)
-              << ("+" + util::format_duration(request_start)) << " "
-              << std::setw(8) << util::format_duration(total) << " "
-              << std::setw(4) << req->status << " " << std::setw(4)
-              << util::utos_unit(as_unsigned(req->response_len)) << " "
-              << req->make_reqpath() << std::endl;
+    std::println("{:3} {:>11} {}{:>11} {:>8} {:4} {:>4} {}", req->stream_id,
+                 "+" + util::format_duration(response_end), pushed ? "*" : " ",
+                 "+" + util::format_duration(request_start),
+                 util::format_duration(total), req->status,
+                 util::utos_unit(as_unsigned(req->response_len)),
+                 req->make_reqpath());
   }
 }
 } // namespace
@@ -2158,8 +2150,8 @@ std::expected<void, Error> communicate(
   if (scheme == "https") {
     ssl_ctx = SSL_CTX_new(TLS_client_method());
     if (!ssl_ctx) {
-      std::cerr << "[ERROR] Failed to create SSL_CTX: "
-                << ERR_error_string(ERR_get_error(), nullptr) << std::endl;
+      std::println(stderr, "[ERROR] Failed to create SSL_CTX: {}",
+                   ERR_error_string(ERR_get_error(), nullptr));
       return std::unexpected{Error::CRYPTO};
     }
 
@@ -2179,30 +2171,31 @@ std::expected<void, Error> communicate(
     SSL_CTX_set_mode(ssl_ctx, SSL_MODE_RELEASE_BUFFERS);
 
     if (SSL_CTX_set_default_verify_paths(ssl_ctx) != 1) {
-      std::cerr << "[WARNING] Could not load system trusted CA certificates: "
-                << ERR_error_string(ERR_get_error(), nullptr) << std::endl;
+      std::println(
+        stderr, "[WARNING] Could not load system trusted CA certificates: {}",
+        ERR_error_string(ERR_get_error(), nullptr));
     }
 
     if (auto rv = nghttp2::tls::ssl_ctx_set_proto_versions(
           ssl_ctx, nghttp2::tls::NGHTTP2_TLS_MIN_VERSION,
           nghttp2::tls::NGHTTP2_TLS_MAX_VERSION);
         !rv) {
-      std::cerr << "[ERROR] Could not set TLS versions" << std::endl;
+      std::println(stderr, "[ERROR] Could not set TLS versions");
       return rv;
     }
 
     if (SSL_CTX_set_cipher_list(ssl_ctx, tls::DEFAULT_CIPHER_LIST.data()) ==
         0) {
-      std::cerr << "[ERROR] " << ERR_error_string(ERR_get_error(), nullptr)
-                << std::endl;
+      std::println(stderr, "[ERROR] {}",
+                   ERR_error_string(ERR_get_error(), nullptr));
       return std::unexpected{Error::CRYPTO};
     }
 
 #ifdef NGHTTP2_OPENSSL_IS_WOLFSSL
     if (SSL_CTX_set_ciphersuites(ssl_ctx,
                                  tls::DEFAULT_TLS13_CIPHER_LIST.data()) == 0) {
-      std::cerr << "[ERROR] " << ERR_error_string(ERR_get_error(), nullptr)
-                << std::endl;
+      std::println(stderr, "[ERROR] {}",
+                   ERR_error_string(ERR_get_error(), nullptr));
       return std::unexpected{Error::CRYPTO};
     }
 #endif // defined(NGHTTP2_OPENSSL_IS_WOLFSSL)
@@ -2210,16 +2203,16 @@ std::expected<void, Error> communicate(
     if (!config.keyfile.empty()) {
       if (SSL_CTX_use_PrivateKey_file(ssl_ctx, config.keyfile.c_str(),
                                       SSL_FILETYPE_PEM) != 1) {
-        std::cerr << "[ERROR] " << ERR_error_string(ERR_get_error(), nullptr)
-                  << std::endl;
+        std::println(stderr, "[ERROR] {}",
+                     ERR_error_string(ERR_get_error(), nullptr));
         return std::unexpected{Error::CRYPTO};
       }
     }
     if (!config.certfile.empty()) {
       if (SSL_CTX_use_certificate_chain_file(ssl_ctx,
                                              config.certfile.c_str()) != 1) {
-        std::cerr << "[ERROR] " << ERR_error_string(ERR_get_error(), nullptr)
-                  << std::endl;
+        std::println(stderr, "[ERROR] {}",
+                     ERR_error_string(ERR_get_error(), nullptr));
         return std::unexpected{Error::CRYPTO};
       }
     }
@@ -2232,15 +2225,14 @@ std::expected<void, Error> communicate(
     if (!SSL_CTX_add_cert_compression_alg(
           ssl_ctx, nghttp2::tls::CERTIFICATE_COMPRESSION_ALGO_BROTLI,
           nghttp2::tls::cert_compress, nghttp2::tls::cert_decompress)) {
-      std::cerr << "[ERROR] SSL_CTX_add_cert_compression_alg failed."
-                << std::endl;
+      std::println(stderr, "[ERROR] SSL_CTX_add_cert_compression_alg failed.");
       return std::unexpected{Error::CRYPTO};
     }
 #endif // defined(NGHTTP2_OPENSSL_IS_BORINGSSL) &&
        // defined(HAVE_LIBBROTLI)
 
     if (auto rv = tls::setup_keylog_callback(ssl_ctx); !rv) {
-      std::cerr << "[ERROR] Failed to setup keylog" << std::endl;
+      std::println(stderr, "[ERROR] Failed to setup keylog");
 
       return rv;
     }
@@ -2265,8 +2257,8 @@ std::expected<void, Error> communicate(
     client.record_domain_lookup_end_time();
 
     if (auto rv = client.initiate_connection(); !rv) {
-      std::cerr << "[ERROR] Could not connect to " << host << ", port " << port
-                << std::endl;
+      std::println(stderr, "[ERROR] Could not connect to {}, port {}", host,
+                   port);
       return rv;
     }
 
@@ -2290,16 +2282,17 @@ std::expected<void, Error> communicate(
           fclose(outfile);
         }
       } else {
-        std::cerr << "Cannot open file " << config.harfile << ". "
-                  << "har file could not be created." << std::endl;
+        std::println(stderr,
+                     "Cannot open file {}. har file could not be created.",
+                     config.harfile);
       }
     }
 #endif // defined(HAVE_JANSSON)
 
     if (client.success != client.reqvec.size()) {
-      std::cerr << "Some requests were not processed. total="
-                << client.reqvec.size() << ", processed=" << client.success
-                << std::endl;
+      std::println(stderr,
+                   "Some requests were not processed. total={}, processed={}",
+                   client.reqvec.size(), client.success);
     }
     if (config.stat) {
       print_stats(client);
@@ -2428,13 +2421,13 @@ int run(char **uris, int n) {
         char tempfn[] = "/tmp/nghttp.temp.XXXXXX";
         data_fd = mkstemp(tempfn);
         if (data_fd == -1) {
-          std::cerr << "[ERROR] Could not create a temporary file in /tmp"
-                    << std::endl;
+          std::println(stderr,
+                       "[ERROR] Could not create a temporary file in /tmp");
           return 1;
         }
         if (unlink(tempfn) != 0) {
-          std::cerr << "[WARNING] failed to unlink temporary file:" << tempfn
-                    << std::endl;
+          std::println(stderr, "[WARNING] failed to unlink temporary file: {}",
+                       tempfn);
         }
         while (1) {
           std::array<char, 1_k> buf;
@@ -2445,36 +2438,33 @@ int run(char **uris, int n) {
           if (rret == 0)
             break;
           if (rret == -1) {
-            std::cerr << "[ERROR] I/O error while reading from STDIN"
-                      << std::endl;
+            std::println(stderr, "[ERROR] I/O error while reading from STDIN");
             return 1;
           }
           while ((wret = write(data_fd, buf.data(), as_unsigned(rret))) == -1 &&
                  errno == EINTR)
             ;
           if (wret != rret) {
-            std::cerr << "[ERROR] I/O error while writing to temporary file"
-                      << std::endl;
+            std::println(stderr,
+                         "[ERROR] I/O error while writing to temporary file");
             return 1;
           }
         }
         if (fstat(data_fd, &data_stat) == -1) {
           close(data_fd);
-          std::cerr << "[ERROR] Could not stat temporary file" << std::endl;
+          std::println(stderr, "[ERROR] Could not stat temporary file");
           return 1;
         }
       }
     } else {
       data_fd = open(config.datafile.c_str(), O_RDONLY | O_BINARY);
       if (data_fd == -1) {
-        std::cerr << "[ERROR] Could not open file " << config.datafile
-                  << std::endl;
+        std::println(stderr, "[ERROR] Could not open file {}", config.datafile);
         return 1;
       }
       if (fstat(data_fd, &data_stat) == -1) {
         close(data_fd);
-        std::cerr << "[ERROR] Could not stat file " << config.datafile
-                  << std::endl;
+        std::println(stderr, "[ERROR] Could not stat file {}", config.datafile);
         return 1;
       }
     }
@@ -2492,13 +2482,12 @@ int run(char **uris, int n) {
     auto uri = strip_fragment(uris[i]);
     if (urlparse_parse_url(uri.c_str(), uri.size(), 0, &u) != 0) {
       ++next_extpri_idx;
-      std::cerr << "[ERROR] Could not parse URI " << uri << std::endl;
+      std::println(stderr, "[ERROR] Could not parse URI {}", uri);
       continue;
     }
     if (!util::has_uri_field(u, URLPARSE_SCHEMA)) {
       ++next_extpri_idx;
-      std::cerr << "[ERROR] URI " << uri << " does not have scheme part"
-                << std::endl;
+      std::println(stderr, "[ERROR] URI {} does not have scheme part", uri);
       continue;
     }
     auto port = util::has_uri_field(u, URLPARSE_PORT)
@@ -2532,9 +2521,7 @@ int run(char **uris, int n) {
 } // namespace
 
 namespace {
-void print_version(std::ostream &out) {
-  out << "nghttp nghttp2/" NGHTTP2_VERSION << std::endl;
-}
+void print_version() { std::println("nghttp nghttp2/" NGHTTP2_VERSION); }
 } // namespace
 
 namespace {
@@ -2722,7 +2709,7 @@ int main(int argc, char **argv) {
       // peer-max-concurrent-streams option
       auto n = util::parse_uint(optarg);
       if (!n) {
-        std::cerr << "-M: Bad option value: " << optarg << std::endl;
+        std::println(stderr, "-M: Bad option value: {}", optarg);
         exit(EXIT_FAILURE);
       }
       config.peer_max_concurrent_streams = static_cast<size_t>(*n);
@@ -2737,7 +2724,7 @@ int main(int argc, char **argv) {
     case 'b': {
       auto n = util::parse_uint(optarg);
       if (!n) {
-        std::cerr << "-b: Bad option value: " << optarg << std::endl;
+        std::println(stderr, "-b: Bad option value: {}", optarg);
         exit(EXIT_FAILURE);
       }
       config.padding = static_cast<size_t>(*n);
@@ -2747,15 +2734,14 @@ int main(int argc, char **argv) {
       config.null_out = true;
       break;
     case 'p':
-      std::cerr << "[WARNING]: --weight option has been deprecated."
-                << std::endl;
+      std::println(stderr, "[WARNING]: --weight option has been deprecated.");
       break;
     case 'r':
 #ifdef HAVE_JANSSON
       config.harfile = optarg;
 #else  // !defined(HAVE_JANSSON)
-      std::cerr << "[WARNING]: -r, --har option is ignored because\n"
-                << "the binary was not compiled with libjansson." << std::endl;
+      std::println(stderr, "[WARNING]: -r, --har option is ignored because the "
+                           "binary was not compiled with libjansson.");
 #endif // !defined(HAVE_JANSSON)
       break;
     case 'v':
@@ -2764,7 +2750,7 @@ int main(int argc, char **argv) {
     case 't': {
       auto d = util::parse_duration_with_unit(optarg);
       if (!d) {
-        std::cerr << "-t: bad timeout value: " << optarg << std::endl;
+        std::println(stderr, "-t: bad timeout value: {}", optarg);
         exit(EXIT_FAILURE);
       }
       config.timeout = *d;
@@ -2777,9 +2763,9 @@ int main(int argc, char **argv) {
     case 'W': {
       auto n = util::parse_uint(optarg);
       if (!n || *n > 30) {
-        std::cerr << "-" << static_cast<char>(c)
-                  << ": specify the integer in the range [0, 30], inclusive"
-                  << std::endl;
+        std::println(stderr,
+                     "-{}: specify the integer in the range [0, 30], inclusive",
+                     static_cast<char>(c));
         exit(EXIT_FAILURE);
       }
       if (c == 'w') {
@@ -2794,7 +2780,7 @@ int main(int argc, char **argv) {
       // Skip first possible ':' in the header name
       auto name_end = strchr(optarg + 1, ':');
       if (!name_end || (header[0] == ':' && header + 1 == name_end)) {
-        std::cerr << "-H: invalid header: " << optarg << std::endl;
+        std::println(stderr, "-H: invalid header: {}", optarg);
         exit(EXIT_FAILURE);
       }
       *name_end = 0;
@@ -2805,8 +2791,7 @@ int main(int argc, char **argv) {
       if (*value == 0) {
         // This could also be a valid case for suppressing a header
         // similar to curl
-        std::cerr << "-H: invalid header - value missing: " << optarg
-                  << std::endl;
+        std::println(stderr, "-H: invalid header - value missing: {}", optarg);
         exit(EXIT_FAILURE);
       }
       util::tolower(header, name_end, header);
@@ -2817,8 +2802,8 @@ int main(int argc, char **argv) {
 #ifdef HAVE_LIBXML2
       config.get_assets = true;
 #else  // !defined(HAVE_LIBXML2)
-      std::cerr << "[WARNING]: -a, --get-assets option is ignored because\n"
-                << "the binary was not compiled with libxml2." << std::endl;
+      std::println(stderr, "[WARNING]: -a, --get-assets option is ignored "
+                           "because the binary was not compiled with libxml2.");
 #endif // !defined(HAVE_LIBXML2)
       break;
     case 's':
@@ -2830,7 +2815,7 @@ int main(int argc, char **argv) {
     case 'm': {
       auto n = util::parse_uint(optarg);
       if (!n) {
-        std::cerr << "-m: Bad option value: " << optarg << std::endl;
+        std::println(stderr, "-m: Bad option value: {}", optarg);
         exit(EXIT_FAILURE);
       }
       config.multiply = static_cast<int>(*n);
@@ -2839,12 +2824,13 @@ int main(int argc, char **argv) {
     case 'c': {
       auto n = util::parse_uint_with_unit(optarg);
       if (!n) {
-        std::cerr << "-c: Bad option value: " << optarg << std::endl;
+        std::println(stderr, "-c: Bad option value: {}", optarg);
         exit(EXIT_FAILURE);
       }
       if (*n > std::numeric_limits<uint32_t>::max()) {
-        std::cerr << "-c: Value too large.  It should be less than or equal to "
-                  << std::numeric_limits<uint32_t>::max() << std::endl;
+        std::println(
+          stderr, "-c: Value too large.  It should be less than or equal to {}",
+          std::numeric_limits<uint32_t>::max());
         exit(EXIT_FAILURE);
       }
       config.header_table_size = static_cast<int64_t>(*n);
@@ -2878,7 +2864,7 @@ int main(int argc, char **argv) {
         break;
       case 5:
         // version option
-        print_version(std::cout);
+        print_version();
         exit(EXIT_SUCCESS);
       case 6:
         // no-content-length option
@@ -2886,15 +2872,14 @@ int main(int argc, char **argv) {
         break;
       case 7:
         // no-dep option
-        std::cerr << "[WARNING]: --no-dep option has been deprecated."
-                  << std::endl;
+        std::println(stderr, "[WARNING]: --no-dep option has been deprecated.");
         break;
       case 9: {
         // trailer option
         auto header = optarg;
         auto name_end = strchr(optarg, ':');
         if (!name_end) {
-          std::cerr << "--trailer: invalid header: " << optarg << std::endl;
+          std::println(stderr, "--trailer: invalid header: {}", optarg);
           exit(EXIT_FAILURE);
         }
         *name_end = 0;
@@ -2905,8 +2890,8 @@ int main(int argc, char **argv) {
         if (*value == 0) {
           // This could also be a valid case for suppressing a header
           // similar to curl
-          std::cerr << "--trailer: invalid header - value missing: " << optarg
-                    << std::endl;
+          std::println(stderr, "--trailer: invalid header - value missing: {}",
+                       optarg);
           exit(EXIT_FAILURE);
         }
         util::tolower(header, name_end, header);
@@ -2925,8 +2910,8 @@ int main(int argc, char **argv) {
         // max-concurrent-streams option
         auto n = util::parse_uint(optarg);
         if (!n) {
-          std::cerr << "--max-concurrent-streams: Bad option value: " << optarg
-                    << std::endl;
+          std::println(stderr, "--max-concurrent-streams: Bad option value: {}",
+                       optarg);
           exit(EXIT_FAILURE);
         }
         config.max_concurrent_streams = static_cast<size_t>(*n);
@@ -2940,14 +2925,16 @@ int main(int argc, char **argv) {
         // encoder-header-table-size option
         auto n = util::parse_uint_with_unit(optarg);
         if (!n) {
-          std::cerr << "--encoder-header-table-size: Bad option value: "
-                    << optarg << std::endl;
+          std::println(stderr,
+                       "--encoder-header-table-size: Bad option value: {}",
+                       optarg);
           exit(EXIT_FAILURE);
         }
         if (*n > std::numeric_limits<uint32_t>::max()) {
-          std::cerr << "--encoder-header-table-size: Value too large.  It "
-                       "should be less than or equal to "
-                    << std::numeric_limits<uint32_t>::max() << std::endl;
+          std::println(stderr,
+                       "--encoder-header-table-size: Value too large.  It "
+                       "should be less than or equal to {}",
+                       std::numeric_limits<uint32_t>::max());
           exit(EXIT_FAILURE);
         }
         config.encoder_header_table_size = static_cast<int64_t>(*n);
@@ -2959,8 +2946,8 @@ int main(int argc, char **argv) {
         break;
       case 16:
         // no-rfc7540-pri option
-        std::cerr << "[WARNING]: --no-rfc7540-pri option has been deprecated."
-                  << std::endl;
+        std::println(stderr,
+                     "[WARNING]: --no-rfc7540-pri option has been deprecated.");
         break;
       case 17: {
         // extpri option
@@ -2971,7 +2958,7 @@ int main(int argc, char **argv) {
         if (nghttp2_extpri_parse_priority(
               &pri, reinterpret_cast<const uint8_t *>(optarg),
               strlen(optarg)) != 0) {
-          std::cerr << "--extpri: Bad option value: " << optarg << std::endl;
+          std::println(stderr, "--extpri: Bad option value: {}", optarg);
           exit(EXIT_FAILURE);
         }
 
@@ -3016,9 +3003,8 @@ int main(int argc, char **argv) {
     auto uri = "https://" + (*authority_it).value;
     urlparse_url u;
     if (urlparse_parse_url(uri.c_str(), uri.size(), 0, &u) != 0) {
-      std::cerr << "[ERROR] Could not parse authority in "
-                << (*authority_it).name << ": " << (*authority_it).value
-                << std::endl;
+      std::println(stderr, "[ERROR] Could not parse authority in {}: {}",
+                   (*authority_it).name, (*authority_it).value);
       exit(EXIT_FAILURE);
     }
 
