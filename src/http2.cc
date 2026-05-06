@@ -24,6 +24,8 @@
  */
 #include "http2.h"
 
+#include <print>
+
 #include "llhttp.h"
 
 #include "util.h"
@@ -564,17 +566,19 @@ int32_t determine_window_update_transmission(nghttp2_session *session,
 void dump_nv(FILE *out, const nghttp2_nv *nva, size_t nvlen) {
   auto end = nva + nvlen;
   for (; nva != end; ++nva) {
-    fprintf(out, "%s: %s\n", nva->name, nva->value);
+    std::println(out, "{}: {}",
+                 as_string_view(std::span{nva->name, nva->namelen}),
+                 as_string_view(std::span{nva->value, nva->valuelen}));
   }
-  fputc('\n', out);
+  std::println(out, "");
   fflush(out);
 }
 
 void dump_nv(FILE *out, const HeaderRefs &nva) {
   for (auto &nv : nva) {
-    fprintf(out, "%s: %s\n", nv.name.data(), nv.value.data());
+    std::println(out, "{}: {}", nv.name, nv.value);
   }
-  fputc('\n', out);
+  std::println(out, "");
   fflush(out);
 }
 

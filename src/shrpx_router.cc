@@ -25,6 +25,7 @@
 #include "shrpx_router.h"
 
 #include <algorithm>
+#include <print>
 
 #include "shrpx_config.h"
 #include "shrpx_log.h"
@@ -418,9 +419,8 @@ std::expected<size_t, Error> Router::match_prefix(size_t *nread,
 
 namespace {
 void dump_node(const RNode *node, int depth) {
-  fprintf(stderr, "%*ss='%.*s', len=%zu, index=%zd\n", depth, "",
-          static_cast<int>(node->s.size()), node->s.data(), node->s.size(),
-          node->index);
+  std::println(stderr, "{:{}}s='{}', len={}, index={}", "", depth, node->s,
+               node->s.size(), node->index);
   for (auto &nd : node->next) {
     dump_node(nd.get(), depth + 4);
   }

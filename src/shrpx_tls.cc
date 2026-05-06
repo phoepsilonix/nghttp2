@@ -37,8 +37,7 @@
 #include <vector>
 #include <string>
 #include <iomanip>
-
-#include <iostream>
+#include <print>
 
 #include "ssl_compat.h"
 
@@ -2112,9 +2111,9 @@ std::expected<size_t, Error> CertLookupTree::lookup(std::string_view hostname) {
 }
 
 void CertLookupTree::dump() const {
-  std::cerr << "exact:" << std::endl;
+  std::println(stderr, "exact:");
   router_.dump();
-  std::cerr << "wildcard suffix (reversed):" << std::endl;
+  std::println(stderr, "wildcard suffix (reversed):");
   rev_wildcard_router_.dump();
 }
 
