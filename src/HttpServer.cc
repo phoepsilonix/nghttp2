@@ -47,10 +47,10 @@
 
 #include <cassert>
 #include <unordered_set>
-#include <iostream>
 #include <thread>
 #include <mutex>
 #include <deque>
+#include <print>
 
 #include "ssl_compat.h"
 
@@ -94,7 +94,7 @@ void delete_handler(Http2Handler *handler) {
 } // namespace
 
 namespace {
-void print_session_id(int64_t id) { std::cout << "[id=" << id << "] "; }
+void print_session_id(int64_t id) { std::print("[id={}] ", id); }
 } // namespace
 
 Config::Config()
@@ -136,7 +136,7 @@ void stream_timeout_cb(struct ev_loop *loop, ev_timer *w, int revents) {
   if (config->verbose) {
     print_session_id(hd->session_id());
     print_timer();
-    std::cout << " timeout stream_id=" << stream->stream_id << std::endl;
+    std::println(" timeout stream_id={}", stream->stream_id);
   }
 
   hd->submit_rst_stream(stream, NGHTTP2_INTERNAL_ERROR);
@@ -277,11 +277,11 @@ public:
   SSL *ssl_session_new(int fd) {
     SSL *ssl = SSL_new(ssl_ctx_);
     if (!ssl) {
-      std::cerr << "SSL_new() failed" << std::endl;
+      std::println(stderr, "SSL_new() failed");
       return nullptr;
     }
     if (SSL_set_fd(ssl, fd) == 0) {
-      std::cerr << "SSL_set_fd() failed" << std::endl;
+      std::println(stderr, "SSL_set_fd() failed");
       SSL_free(ssl);
       return nullptr;
     }
@@ -485,7 +485,7 @@ void on_session_closed(Http2Handler *hd, int64_t session_id) {
   if (hd->get_config()->verbose) {
     print_session_id(session_id);
     print_timer();
-    std::cout << " closed" << std::endl;
+    std::println(" closed");
   }
 }
 } // namespace
@@ -593,8 +593,8 @@ std::expected<void, Error> Http2Handler::fill_wb() {
     auto datalen = nghttp2_session_mem_send2(session_, &data);
 
     if (datalen < 0) {
-      std::cerr << "nghttp2_session_mem_send2() returned error: "
-                << nghttp2_strerror(static_cast<int>(datalen)) << std::endl;
+      std::println(stderr, "nghttp2_session_mem_send2() returned error: {}",
+                   nghttp2_strerror(static_cast<int>(datalen)));
       return std::unexpected{Error::HTTP2};
     }
     if (datalen == 0) {
@@ -634,8 +634,8 @@ std::expected<void, Error> Http2Handler::read_clear() {
     nghttp2_session_mem_recv2(session_, buf.data(), as_unsigned(nread));
   if (nrecv < 0) {
     if (nrecv != NGHTTP2_ERR_BAD_CLIENT_MAGIC) {
-      std::cerr << "nghttp2_session_mem_recv2() returned error: "
-                << nghttp2_strerror(static_cast<int>(nrecv)) << std::endl;
+      std::println(stderr, "nghttp2_session_mem_recv2() returned error: {}",
+                   nghttp2_strerror(static_cast<int>(nrecv)));
     }
     return std::unexpected{Error::HTTP2};
   }
@@ -705,7 +705,7 @@ std::expected<void, Error> Http2Handler::tls_handshake() {
   }
 
   if (sessions_->get_config()->verbose) {
-    std::cerr << "SSL/TLS handshake completed" << std::endl;
+    std::println(stderr, "SSL/TLS handshake completed");
   }
 
   if (auto rv = verify_alpn_result(); !rv) {
@@ -721,7 +721,7 @@ std::expected<void, Error> Http2Handler::tls_handshake() {
 
   if (sessions_->get_config()->verbose) {
     if (SSL_session_reused(ssl_)) {
-      std::cerr << "SSL/TLS session reused" << std::endl;
+      std::println(stderr, "SSL/TLS session reused");
     }
   }
 
@@ -757,8 +757,8 @@ std::expected<void, Error> Http2Handler::read_tls() {
     auto nrecv = nghttp2_session_mem_recv2(session_, buf.data(), nread);
     if (nrecv < 0) {
       if (nrecv != NGHTTP2_ERR_BAD_CLIENT_MAGIC) {
-        std::cerr << "nghttp2_session_mem_recv2() returned error: "
-                  << nghttp2_strerror(static_cast<int>(nrecv)) << std::endl;
+        std::println(stderr, "nghttp2_session_mem_recv2() returned error: {}",
+                     nghttp2_strerror(static_cast<int>(nrecv)));
       }
       return std::unexpected{Error::HTTP2};
     }
@@ -884,16 +884,15 @@ std::expected<void, Error> Http2Handler::verify_alpn_result() {
   if (next_proto) {
     auto proto = as_string_view(next_proto, next_proto_len);
     if (sessions_->get_config()->verbose) {
-      std::cout << "The negotiated protocol: " << proto << std::endl;
+      std::println("The negotiated protocol: {}", proto);
     }
     if (util::check_h2_is_selected(proto)) {
       return {};
     }
   }
   if (sessions_->get_config()->verbose) {
-    std::cerr << "Client did not advertise HTTP/2 protocol."
-              << " (nghttp2 expects " << NGHTTP2_PROTO_VERSION_ID << ")"
-              << std::endl;
+    std::println(stderr, "Client did not advertise HTTP/2 protocol. (nghttp2 "
+                         "expects " NGHTTP2_PROTO_VERSION_ID ")");
   }
   return std::unexpected{Error::ALPN};
 }
@@ -1027,8 +1026,8 @@ Http2Handler::submit_push_promise(Stream *stream, std::string_view push_path) {
     nva.size(), nullptr);
 
   if (promised_stream_id < 0) {
-    std::cerr << "nghttp2_submit_push_promise() returned error: "
-              << nghttp2_strerror(promised_stream_id) << std::endl;
+    std::println(stderr, "nghttp2_submit_push_promise() returned error: {}",
+                 nghttp2_strerror(promised_stream_id));
 
     return std::unexpected{Error::HTTP2};
   }
@@ -1846,7 +1845,7 @@ public:
     }
     for (size_t i = 0; i < config_->num_worker; ++i) {
       if (config_->verbose) {
-        std::cerr << "spawning thread #" << i << std::endl;
+        std::println(stderr, "spawning thread #{}", i);
       }
       auto worker = std::make_unique<Worker>();
       auto loop = ev_loop_new(get_ev_loop_flags());
@@ -1964,7 +1963,8 @@ FileEntry make_status_body(uint32_t status, uint16_t port) {
   int fd = mkstemp(tempfn);
   if (fd == -1) {
     auto error = errno;
-    std::cerr << "Could not open status response body file: errno=" << error;
+    std::println(stderr, "Could not open status response body file: errno={}",
+                 error);
     assert(0);
   }
   unlink(tempfn);
@@ -1974,8 +1974,9 @@ FileEntry make_status_body(uint32_t status, uint16_t port) {
     ;
   if (nwrite == -1) {
     auto error = errno;
-    std::cerr << "Could not write status response body into file: errno="
-              << error;
+    std::println(stderr,
+                 "Could not write status response body into file: errno={}",
+                 error);
     assert(0);
   }
 
@@ -2038,7 +2039,7 @@ std::expected<void, Error> start_listen(HttpServer *sv, struct ev_loop *loop,
   addrinfo *res, *rp;
   r = getaddrinfo(addr, service.c_str(), &hints, &res);
   if (r != 0) {
-    std::cerr << "getaddrinfo() failed: " << gai_strerror(r) << std::endl;
+    std::println(stderr, "getaddrinfo() failed: {}", gai_strerror(r));
     return std::unexpected{Error::LIBC};
   }
 
@@ -2071,13 +2072,14 @@ std::expected<void, Error> start_listen(HttpServer *sv, struct ev_loop *loop,
 
       if (config->verbose) {
         std::string s = util::numeric_name(rp->ai_addr, rp->ai_addrlen);
-        std::cout << (rp->ai_family == AF_INET ? "IPv4" : "IPv6") << ": listen "
-                  << s << ":" << config->port << std::endl;
+        std::println("{}: listen {}:{}",
+                     rp->ai_family == AF_INET ? "IPv4" : "IPv6", s,
+                     config->port);
       }
       ok = true;
       continue;
     } else {
-      std::cerr << strerror(errno) << std::endl;
+      std::println(stderr, "{}", strerror(errno));
     }
     close(fd);
   }
@@ -2096,13 +2098,10 @@ int alpn_select_proto_cb(SSL *ssl, const unsigned char **out,
                          unsigned int inlen, void *arg) {
   auto config = static_cast<HttpServer *>(arg)->get_config();
   if (config->verbose) {
-    std::cout << "[ALPN] client offers:" << std::endl;
-  }
-  if (config->verbose) {
+    std::println("[ALPN] client offers:");
+
     for (unsigned int i = 0; i < inlen; i += in[i] + 1) {
-      std::cout << " * ";
-      std::cout.write(reinterpret_cast<const char *>(&in[i + 1]), in[i]);
-      std::cout << std::endl;
+      std::println(" * {}", as_string_view(&in[i + 1], in[i]));
     }
   }
   if (!util::select_h2(out, outlen, in, inlen)) {
@@ -2118,7 +2117,7 @@ std::expected<void, Error> HttpServer::run() {
   if (!config_->no_tls) {
     ssl_ctx = SSL_CTX_new(TLS_server_method());
     if (!ssl_ctx) {
-      std::cerr << ERR_error_string(ERR_get_error(), nullptr) << std::endl;
+      std::println(stderr, "{}", ERR_error_string(ERR_get_error(), nullptr));
       return std::unexpected{Error::CRYPTO};
     }
 
@@ -2142,20 +2141,20 @@ std::expected<void, Error> HttpServer::run() {
           ssl_ctx, nghttp2::tls::NGHTTP2_TLS_MIN_VERSION,
           nghttp2::tls::NGHTTP2_TLS_MAX_VERSION);
         !rv) {
-      std::cerr << "Could not set TLS versions" << std::endl;
+      std::println(stderr, "Could not set TLS versions");
       return rv;
     }
 
     if (SSL_CTX_set_cipher_list(ssl_ctx, tls::DEFAULT_CIPHER_LIST.data()) ==
         0) {
-      std::cerr << ERR_error_string(ERR_get_error(), nullptr) << std::endl;
+      std::println(stderr, "{}", ERR_error_string(ERR_get_error(), nullptr));
       return std::unexpected{Error::CRYPTO};
     }
 
 #ifdef NGHTTP2_OPENSSL_IS_WOLFSSL
     if (SSL_CTX_set_ciphersuites(ssl_ctx,
                                  tls::DEFAULT_TLS13_CIPHER_LIST.data()) == 0) {
-      std::cerr << ERR_error_string(ERR_get_error(), nullptr) << std::endl;
+      std::println(stderr, "{}", ERR_error_string(ERR_get_error(), nullptr));
       return std::unexpected{Error::CRYPTO};
     }
 #endif // defined(NGHTTP2_OPENSSL_IS_WOLFSSL)
@@ -2165,8 +2164,8 @@ std::expected<void, Error> HttpServer::run() {
     SSL_CTX_set_session_cache_mode(ssl_ctx, SSL_SESS_CACHE_SERVER);
 
     if (SSL_CTX_set1_groups_list(ssl_ctx, config_->groups.data()) != 1) {
-      std::cerr << "SSL_CTX_set1_groups_list failed: "
-                << ERR_error_string(ERR_get_error(), nullptr);
+      std::println(stderr, "SSL_CTX_set1_groups_list failed: {}",
+                   ERR_error_string(ERR_get_error(), nullptr));
       return std::unexpected{Error::CRYPTO};
     }
 
@@ -2174,8 +2173,8 @@ std::expected<void, Error> HttpServer::run() {
       // Read DH parameters from file
       auto bio = BIO_new_file(config_->dh_param_file.c_str(), "rb");
       if (bio == nullptr) {
-        std::cerr << "BIO_new_file() failed: "
-                  << ERR_error_string(ERR_get_error(), nullptr) << std::endl;
+        std::println(stderr, "BIO_new_file() failed: {}",
+                     ERR_error_string(ERR_get_error(), nullptr));
         return std::unexpected{Error::IO};
       }
 
@@ -2186,22 +2185,22 @@ std::expected<void, Error> HttpServer::run() {
         nullptr, nullptr);
 
       if (!OSSL_DECODER_from_bio(dctx, bio)) {
-        std::cerr << "OSSL_DECODER_from_bio() failed: "
-                  << ERR_error_string(ERR_get_error(), nullptr) << std::endl;
+        std::println(stderr, "OSSL_DECODER_from_bio() failed: {}",
+                     ERR_error_string(ERR_get_error(), nullptr));
         return std::unexpected{Error::CRYPTO};
       }
 
       if (SSL_CTX_set0_tmp_dh_pkey(ssl_ctx, dh) != 1) {
-        std::cerr << "SSL_CTX_set0_tmp_dh_pkey failed: "
-                  << ERR_error_string(ERR_get_error(), nullptr) << std::endl;
+        std::println(stderr, "SSL_CTX_set0_tmp_dh_pkey failed: {}",
+                     ERR_error_string(ERR_get_error(), nullptr));
         return std::unexpected{Error::CRYPTO};
       }
 #else  // !OPENSSL_3_0_0_API
       auto dh = PEM_read_bio_DHparams(bio, nullptr, nullptr, nullptr);
 
       if (dh == nullptr) {
-        std::cerr << "PEM_read_bio_DHparams() failed: "
-                  << ERR_error_string(ERR_get_error(), nullptr) << std::endl;
+        std::println(stderr, "PEM_read_bio_DHparams() failed: {}",
+                     ERR_error_string(ERR_get_error(), nullptr));
         return std::unexpected{Error::CRYPTO};
       }
 
@@ -2213,16 +2212,16 @@ std::expected<void, Error> HttpServer::run() {
 
     if (SSL_CTX_use_PrivateKey_file(ssl_ctx, config_->private_key_file.c_str(),
                                     SSL_FILETYPE_PEM) != 1) {
-      std::cerr << "SSL_CTX_use_PrivateKey_file failed." << std::endl;
+      std::println(stderr, "SSL_CTX_use_PrivateKey_file failed.");
       return std::unexpected{Error::CRYPTO};
     }
     if (SSL_CTX_use_certificate_chain_file(ssl_ctx,
                                            config_->cert_file.c_str()) != 1) {
-      std::cerr << "SSL_CTX_use_certificate_file failed." << std::endl;
+      std::println(stderr, "SSL_CTX_use_certificate_file failed.");
       return std::unexpected{Error::CRYPTO};
     }
     if (SSL_CTX_check_private_key(ssl_ctx) != 1) {
-      std::cerr << "SSL_CTX_check_private_key failed." << std::endl;
+      std::println(stderr, "SSL_CTX_check_private_key failed.");
       return std::unexpected{Error::CRYPTO};
     }
     if (config_->verify_client) {
@@ -2239,14 +2238,14 @@ std::expected<void, Error> HttpServer::run() {
     if (!SSL_CTX_add_cert_compression_alg(
           ssl_ctx, nghttp2::tls::CERTIFICATE_COMPRESSION_ALGO_BROTLI,
           nghttp2::tls::cert_compress, nghttp2::tls::cert_decompress)) {
-      std::cerr << "SSL_CTX_add_cert_compression_alg failed." << std::endl;
+      std::println(stderr, "SSL_CTX_add_cert_compression_alg failed.");
       return std::unexpected{Error::CRYPTO};
     }
 #endif // defined(NGHTTP2_OPENSSL_IS_BORINGSSL) &&
        // defined(HAVE_LIBBROTLI)
 
     if (auto rv = tls::setup_keylog_callback(ssl_ctx); !rv) {
-      std::cerr << "Failed to setup keylog" << std::endl;
+      std::println(stderr, "Failed to setup keylog");
       return rv;
     }
   }
@@ -2255,7 +2254,7 @@ std::expected<void, Error> HttpServer::run() {
 
   Sessions sessions(this, loop, config_, ssl_ctx);
   if (auto rv = start_listen(this, loop, &sessions, config_); !rv) {
-    std::cerr << "Could not listen" << std::endl;
+    std::println(stderr, "Could not listen");
     if (ssl_ctx) {
       SSL_CTX_free(ssl_ctx);
     }
