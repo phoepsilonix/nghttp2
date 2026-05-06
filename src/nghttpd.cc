@@ -74,9 +74,7 @@ int parse_push_config(Config &config, const char *optarg) {
 } // namespace
 
 namespace {
-void print_version(std::ostream &out) {
-  out << "nghttpd nghttp2/" NGHTTP2_VERSION << std::endl;
-}
+void print_version() { std::println("nghttpd nghttp2/" NGHTTP2_VERSION); }
 } // namespace
 
 namespace {
@@ -341,7 +339,7 @@ int main(int argc, char **argv) {
         break;
       case 3:
         // version
-        print_version(std::cout);
+        print_version();
         exit(EXIT_SUCCESS);
       case 4:
         // dh-param-file

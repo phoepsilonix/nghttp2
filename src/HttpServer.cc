@@ -47,7 +47,6 @@
 
 #include <cassert>
 #include <unordered_set>
-#include <iostream>
 #include <thread>
 #include <mutex>
 #include <deque>
@@ -95,7 +94,7 @@ void delete_handler(Http2Handler *handler) {
 } // namespace
 
 namespace {
-void print_session_id(int64_t id) { std::cout << "[id=" << id << "] "; }
+void print_session_id(int64_t id) { std::print("[id={}] ", id); }
 } // namespace
 
 Config::Config()
@@ -137,7 +136,7 @@ void stream_timeout_cb(struct ev_loop *loop, ev_timer *w, int revents) {
   if (config->verbose) {
     print_session_id(hd->session_id());
     print_timer();
-    std::cout << " timeout stream_id=" << stream->stream_id << std::endl;
+    std::println(" timeout stream_id={}", stream->stream_id);
   }
 
   hd->submit_rst_stream(stream, NGHTTP2_INTERNAL_ERROR);
@@ -486,7 +485,7 @@ void on_session_closed(Http2Handler *hd, int64_t session_id) {
   if (hd->get_config()->verbose) {
     print_session_id(session_id);
     print_timer();
-    std::cout << " closed" << std::endl;
+    std::println(" closed");
   }
 }
 } // namespace
@@ -885,7 +884,7 @@ std::expected<void, Error> Http2Handler::verify_alpn_result() {
   if (next_proto) {
     auto proto = as_string_view(next_proto, next_proto_len);
     if (sessions_->get_config()->verbose) {
-      std::cout << "The negotiated protocol: " << proto << std::endl;
+      std::println("The negotiated protocol: {}", proto);
     }
     if (util::check_h2_is_selected(proto)) {
       return {};
@@ -2073,8 +2072,9 @@ std::expected<void, Error> start_listen(HttpServer *sv, struct ev_loop *loop,
 
       if (config->verbose) {
         std::string s = util::numeric_name(rp->ai_addr, rp->ai_addrlen);
-        std::cout << (rp->ai_family == AF_INET ? "IPv4" : "IPv6") << ": listen "
-                  << s << ":" << config->port << std::endl;
+        std::println("{}: listen {}:{}",
+                     rp->ai_family == AF_INET ? "IPv4" : "IPv6", s,
+                     config->port);
       }
       ok = true;
       continue;
@@ -2098,13 +2098,10 @@ int alpn_select_proto_cb(SSL *ssl, const unsigned char **out,
                          unsigned int inlen, void *arg) {
   auto config = static_cast<HttpServer *>(arg)->get_config();
   if (config->verbose) {
-    std::cout << "[ALPN] client offers:" << std::endl;
-  }
-  if (config->verbose) {
+    std::println("[ALPN] client offers:");
+
     for (unsigned int i = 0; i < inlen; i += in[i] + 1) {
-      std::cout << " * ";
-      std::cout.write(reinterpret_cast<const char *>(&in[i + 1]), in[i]);
-      std::cout << std::endl;
+      std::println(" * {}", as_string_view(&in[i + 1], in[i]));
     }
   }
   if (!util::select_h2(out, outlen, in, inlen)) {
