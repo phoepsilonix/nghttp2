@@ -24,7 +24,6 @@
  */
 #include "h2load_http3_session.h"
 
-#include <iostream>
 #include <print>
 
 #include <ngtcp2/ngtcp2.h>

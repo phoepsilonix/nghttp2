@@ -31,7 +31,6 @@
 #include "util.h"
 #include "template.h"
 
-#include <iostream>
 #include <fstream>
 #include <print>
 
@@ -205,8 +204,7 @@ Http1Session::on_read(std::span<const uint8_t> data) {
                                        data.data());
 
   if (client_->worker->config->verbose) {
-    std::cout.write(reinterpret_cast<const char *>(data.data()),
-                    static_cast<std::streamsize>(nread));
+    fwrite(data.data(), 1, nread, stdout);
   }
 
   if (htperr == HPE_PAUSED) {
@@ -257,7 +255,7 @@ std::expected<void, Error> Http1Session::on_write() {
     wb.append(buf.data(), as_unsigned(nread));
 
     if (client_->worker->config->verbose) {
-      std::cout << "[send " << nread << " byte(s)]" << std::endl;
+      std::println("[send {} byte(s)]", nread);
     }
 
     if (req_stat->data_offset == config->data_length) {

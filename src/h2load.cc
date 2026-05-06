@@ -300,10 +300,11 @@ void duration_timeout_cb(struct ev_loop *loop, ev_timer *w, int revents) {
 
   worker->current_phase = Phase::DURATION_OVER;
 
-  std::cout << "Main benchmark duration is over for thread #" << worker->id
-            << ". Stopping all clients." << std::endl;
+  std::println(
+    "Main benchmark duration is over for thread #{}. Stopping all clients.",
+    worker->id);
   worker->stop_all_clients();
-  std::cout << "Stopped all clients for thread #" << worker->id << std::endl;
+  std::println("Stopped all clients for thread #{}", worker->id);
 }
 } // namespace
 
@@ -312,10 +313,9 @@ namespace {
 void warmup_timeout_cb(struct ev_loop *loop, ev_timer *w, int revents) {
   auto worker = static_cast<Worker *>(w->data);
 
-  std::cout << "Warm-up phase is over for thread #" << worker->id << "."
-            << std::endl;
-  std::cout << "Main benchmark duration is started for thread #" << worker->id
-            << "." << std::endl;
+  std::println("Warm-up phase is over for thread #{}.", worker->id);
+  std::println("Main benchmark duration is started for thread #{}.",
+               worker->id);
   assert(worker->stats.req_started == 0);
   assert(worker->stats.req_done == 0);
 
@@ -645,8 +645,7 @@ std::expected<void, Error> Client::connect() {
     record_connect_start_time();
   } else if (worker->current_phase == Phase::INITIAL_IDLE) {
     worker->current_phase = Phase::WARM_UP;
-    std::cout << "Warm-up started for thread #" << worker->id << "."
-              << std::endl;
+    std::println("Warm-up started for thread #{}.", worker->id);
     ev_timer_start(worker->loop, &worker->warmup_watcher);
   }
 
@@ -860,8 +859,7 @@ void Client::process_request_failure() {
   if (req_inflight == 0) {
     terminate_session();
   }
-  std::cout << "Process Request Failure:" << worker->stats.req_failed
-            << std::endl;
+  std::println("Process Request Failure: {}", worker->stats.req_failed);
 }
 
 namespace {
@@ -964,15 +962,15 @@ void print_server_tmp_key(SSL *ssl) {
 
   auto key_del = defer([key] { EVP_PKEY_free(key); });
 
-  std::cout << "Server Temp Key: ";
+  static constexpr auto title = "Server Temp Key:"sv;
 
   auto pkey_id = EVP_PKEY_id(key);
   switch (pkey_id) {
   case EVP_PKEY_RSA:
-    std::cout << "RSA " << EVP_PKEY_bits(key) << " bits" << std::endl;
+    std::println("{} RSA {} bits", title, EVP_PKEY_bits(key));
     break;
   case EVP_PKEY_DH:
-    std::cout << "DH " << EVP_PKEY_bits(key) << " bits" << std::endl;
+    std::println("{} DH {} bits", title, EVP_PKEY_bits(key));
     break;
   case EVP_PKEY_EC: {
     auto group = pkey_get_group_name(key);
@@ -980,13 +978,12 @@ void print_server_tmp_key(SSL *ssl) {
       group = "<unknown>"sv;
     }
 
-    std::cout << "ECDH " << group << " " << EVP_PKEY_bits(key) << " bits"
-              << std::endl;
+    std::println("{} ECDH {} {} bits", title, group, EVP_PKEY_bits(key));
     break;
   }
   default:
-    std::cout << OBJ_nid2sn(pkey_id) << " " << EVP_PKEY_bits(key) << " bits"
-              << std::endl;
+    std::println("{} {} {} bits", title, OBJ_nid2sn(pkey_id),
+                 EVP_PKEY_bits(key));
     break;
   }
 }
@@ -1021,42 +1018,40 @@ void print_server_cert(SSL *ssl) {
   });
 #endif // defined(NGHTTP2_OPENSSL_IS_WOLFSSL)
 
-  std::cout << "Certificate: ";
+  static constexpr auto title = "Certificate:"sv;
 
   switch (EVP_PKEY_id(pkey)) {
   case EVP_PKEY_RSA:
-    std::cout << "RSA ";
+    std::println("{} RSA {} bits", title, EVP_PKEY_bits(pkey));
     break;
   case EVP_PKEY_EC:
-    std::cout << "ECDSA " << pkey_get_group_name(pkey) << " ";
+    std::println("{} ECDSA {} {} bits", title, pkey_get_group_name(pkey),
+                 EVP_PKEY_bits(pkey));
     break;
 #ifdef NGHTTP2_GENUINE_OPENSSL
   case EVP_PKEY_ED448:
-    std::cout << "ED448 ";
+    std::println("{} ED448 {} bits", title, EVP_PKEY_bits(pkey));
     break;
   case EVP_PKEY_ED25519:
-    std::cout << "ED25519 ";
+    std::println("{} ED25519 {} bits", title, EVP_PKEY_bits(pkey));
     break;
 #endif // defined(NGHTTP2_GENUINE_OPENSSL)
   default:
 #if OPENSSL_3_0_0_API
     if (auto name = EVP_PKEY_get0_type_name(pkey); name) {
-      std::cout << name << " ";
+      std::println("{} {} {} bits", title, name, EVP_PKEY_bits(pkey));
       break;
     }
 #endif // OPENSSL_3_0_0_API
 
-    std::cout << "<unknown> ";
+    std::println("{} <unknown> {} bits", title, EVP_PKEY_bits(pkey));
   }
-
-  std::cout << EVP_PKEY_bits(pkey) << " bits" << std::endl;
 }
 } // namespace
 
 namespace {
 void print_negotiated_group(SSL *ssl) {
-  std::cout << "Negotiated Group: " << get_negotiated_group_name(ssl)
-            << std::endl;
+  std::println("Negotiated Group: {}", get_negotiated_group_name(ssl));
 }
 } // namespace
 
@@ -1064,8 +1059,8 @@ void Client::report_tls_info() {
   if (worker->id == 0 && !worker->tls_info_report_done) {
     worker->tls_info_report_done = true;
     auto cipher = SSL_get_current_cipher(ssl);
-    std::cout << "TLS Protocol: " << tls::get_tls_protocol(ssl) << "\n"
-              << "Cipher: " << SSL_CIPHER_get_name(cipher) << std::endl;
+    std::println("TLS Protocol: {}", tls::get_tls_protocol(ssl));
+    std::println("Cipher: {}", SSL_CIPHER_get_name(cipher));
 #ifndef NGHTTP2_OPENSSL_IS_BORINGSSL
     print_server_tmp_key(ssl);
 #endif // !defined(NGHTTP2_OPENSSL_IS_BORINGSSL)
@@ -1073,15 +1068,14 @@ void Client::report_tls_info() {
     print_server_cert(ssl);
     print_negotiated_group(ssl);
 
-    std::cout << "Resumption: " << (SSL_session_reused(ssl) ? "yes"sv : "no"sv)
-              << std::endl;
+    std::println("Resumption: {}", SSL_session_reused(ssl) ? "yes"sv : "no"sv);
   }
 }
 
 void Client::report_app_info() {
   if (worker->id == 0 && !worker->app_info_report_done) {
     worker->app_info_report_done = true;
-    std::cout << "Application protocol: " << selected_proto << std::endl;
+    std::println("Application protocol: {}", selected_proto);
   }
 }
 
@@ -1314,13 +1308,13 @@ std::expected<void, Error> Client::connection_made() {
       std::println(stderr, "QUIC requires ALPN negotiation");
       return std::unexpected{Error::ALPN};
     } else {
-      std::cout << "No protocol negotiated. Fallback behaviour may be activated"
-                << std::endl;
+      std::println(
+        "No protocol negotiated. Fallback behaviour may be activated");
 
       for (const auto &proto : config.alpn_list) {
         if (NGHTTP2_H1_1_ALPN == proto) {
-          std::cout << "Server does not support ALPN. Falling back to HTTP/1.1."
-                    << std::endl;
+          std::println(
+            "Server does not support ALPN. Falling back to HTTP/1.1.");
           session = std::make_unique<Http1Session>(this);
           selected_proto = NGHTTP2_H1_1;
           break;
@@ -1333,11 +1327,10 @@ std::expected<void, Error> Client::connection_made() {
     }
 
     if (!session) {
-      std::cout
-        << "No supported protocol was negotiated. Supported protocols were:"
-        << std::endl;
+      std::println(
+        "No supported protocol was negotiated. Supported protocols were:");
       for (const auto &proto : config.alpn_list) {
-        std::cout << proto.substr(1) << std::endl;
+        std::println("{}", proto.substr(1));
       }
       disconnect();
       return std::unexpected{Error::ALPN};
@@ -1901,8 +1894,7 @@ void Worker::report_progress() {
     return;
   }
 
-  std::cout << "progress: " << stats.req_done * 100 / stats.req_todo << "% done"
-            << std::endl;
+  std::println("progress: {}% done", stats.req_done * 100 / stats.req_todo);
 }
 
 void Worker::report_rate_progress() {
@@ -1910,8 +1902,8 @@ void Worker::report_rate_progress() {
     return;
   }
 
-  std::cout << "progress: " << nconns_made * 100 / nclients
-            << "% of clients started" << std::endl;
+  std::println("progress: {}% of clients started",
+               nconns_made * 100 / nclients);
 }
 
 void Worker::write_tls_session(const std::string &path) {
@@ -2371,21 +2363,19 @@ std::unique_ptr<Worker> create_worker(uint32_t id, SSL_CTX *ssl_ctx,
                                       size_t nreqs, size_t nclients,
                                       size_t rate, size_t max_samples) {
   if (config.is_timing_based_mode()) {
-    std::cout << "spawning thread #" << id << ": " << nclients
-              << " total client(s). Timing-based test with "
-              << config.warm_up_time << "s of warm-up time and "
-              << config.duration << "s of main duration for measurements."
-              << std::endl;
+    std::println(
+      "spawning thread #{}: {} total client(s). Timing-based test with {}s of "
+      "warm-up time and {}s of main duration for measurements.",
+      id, nclients, config.warm_up_time, config.duration);
   } else {
-    std::cout << "spawning thread #" << id << ": " << nclients
-              << " total client(s).";
+    std::print("spawning thread #{}: {} total client(s).", id, nclients);
 
     if (config.is_rate_mode() && nclients > rate) {
-      std::cout << " Up to " << rate << " client(s) will be created every "
-                << util::duration_str(config.rate_period);
+      std::print(" Up to {} client(s) will be created every {}", rate,
+                 util::duration_str(config.rate_period));
     }
 
-    std::cout << " " << nreqs << " total requests" << std::endl;
+    std::println(" {} total requests", nreqs);
   }
 
   if (config.is_rate_mode()) {
@@ -2447,7 +2437,7 @@ namespace {
 // ascending order.
 template <typename F, typename T>
 requires std::invocable<F, double>
-void plot_histogram(std::ostream &o, const std::vector<T> &data, F formatter) {
+void plot_histogram(FILE *o, const std::vector<T> &data, F formatter) {
   if (data.empty()) {
     return;
   }
@@ -2480,19 +2470,9 @@ void plot_histogram(std::ostream &o, const std::vector<T> &data, F formatter) {
 
   size_t cum_counts = 0;
 
-  auto flags = o.flags();
-  auto prec = o.precision();
-  auto guard = defer([&o, flags, prec]() {
-    o.flags(flags);
-    o.precision(prec);
-  });
-
   for (size_t i = 0; i < counts.size(); ++i) {
     auto lower = min + static_cast<double>(i) * width;
     auto upper = min + static_cast<double>(i + 1) * width;
-
-    o << std::setw(10) << formatter(lower) << "-" << std::setw(10)
-      << formatter(upper) << " [";
 
     cum_counts += counts[i];
 
@@ -2504,39 +2484,25 @@ void plot_histogram(std::ostream &o, const std::vector<T> &data, F formatter) {
       len = 0;
     }
 
-    size_t j;
-    for (j = 0; j < len; ++j) {
-      o << '/';
-    }
-
-    for (; j < max_bar; ++j) {
-      o << ' ';
-    }
-
-    o << "](" << std::fixed << std::setprecision(2) << std::setw(6)
-      << static_cast<double>(counts[i]) * 100. /
-           static_cast<double>(data.size())
-      << "/" << std::setw(6)
-      << static_cast<double>(cum_counts) * 100. /
-           static_cast<double>(data.size())
-      << "%)\n";
+    std::println(o, "{:>10}-{:>10} [{:/<{}}{:{}}]({:6.2f}/{:6.2f}%)",
+                 formatter(lower), formatter(upper), "", len, "", max_bar - len,
+                 static_cast<double>(counts[i]) * 100. /
+                   static_cast<double>(data.size()),
+                 static_cast<double>(cum_counts) * 100. /
+                   static_cast<double>(data.size()));
   }
 }
 } // namespace
 
 namespace {
 template <typename F, typename T>
-void output_sd_stat(std::ostream &o, std::string_view title,
-                    const SDStat<T> &st, F formatter) {
-  o << std::left << std::setw(12) << title << ": " << std::right;
-  o << std::setw(10) << formatter(st.min) << "  ";
-  o << std::setw(10) << formatter(st.max) << "  ";
-  o << std::setw(10) << formatter(st.median) << " ";
-  o << std::setw(10) << formatter(st.p95) << " ";
-  o << std::setw(10) << formatter(st.p99) << " ";
-  o << std::setw(10) << formatter(st.mean) << "  ";
-  o << std::setw(10) << formatter(st.sd);
-  o << std::setw(9) << util::dtos(st.within_sd) << "%\n";
+void output_sd_stat(FILE *o, std::string_view title, const SDStat<T> &st,
+                    F formatter) {
+  std::println(
+    o, "{:12}: {:>10}  {:>10}  {:>10}  {:>10}  {:>10}  {:>10}  {:>10}{:>9}%",
+    title, formatter(st.min), formatter(st.max), formatter(st.median),
+    formatter(st.p95), formatter(st.p99), formatter(st.mean), formatter(st.sd),
+    util::dtos(st.within_sd));
 
   if (config.histogram) {
     plot_histogram(o, st.samples, formatter);
@@ -2546,7 +2512,7 @@ void output_sd_stat(std::ostream &o, std::string_view title,
 
 namespace {
 template <typename T>
-void output_sd_stat_duration(std::ostream &o, std::string_view title,
+void output_sd_stat_duration(FILE *o, std::string_view title,
                              const SDStat<T> &st) {
   output_sd_stat(o, title, st, [](auto v) { return util::format_duration(v); });
 }
@@ -2554,9 +2520,14 @@ void output_sd_stat_duration(std::ostream &o, std::string_view title,
 
 namespace {
 template <typename T>
-void output_sd_stat(std::ostream &o, std::string_view title,
-                    const SDStat<T> &st) {
-  output_sd_stat(o, title, st, std::identity{});
+void output_sd_stat(FILE *o, std::string_view title, const SDStat<T> &st) {
+  output_sd_stat(o, title, st, [](auto v) {
+    if constexpr (std::integral<decltype(v)>) {
+      return util::utos(v);
+    } else {
+      return util::dtos(v);
+    }
+  });
 }
 } // namespace
 
@@ -2726,9 +2697,7 @@ void write_result(const std::string &path,
 } // namespace
 
 namespace {
-void print_version(std::ostream &out) {
-  out << "h2load nghttp2/" NGHTTP2_VERSION << std::endl;
-}
+void print_version() { std::println("h2load nghttp2/" NGHTTP2_VERSION); }
 } // namespace
 
 namespace {
@@ -3258,7 +3227,7 @@ int main(int argc, char **argv) {
       switch (flag) {
       case 1:
         // version option
-        print_version(std::cout);
+        print_version();
         exit(EXIT_SUCCESS);
       case 2:
         // ciphers option
@@ -3841,7 +3810,7 @@ int main(int argc, char **argv) {
 
   resolve_host();
 
-  std::cout << "starting benchmark..." << std::endl;
+  std::println("starting benchmark...");
 
   std::vector<std::unique_ptr<Worker>> workers;
   workers.reserve(config.nthreads);
@@ -4005,46 +3974,47 @@ int main(int argc, char **argv) {
                                   static_cast<double>(stats.bytes_head_decomp);
   }
 
-  std::cout << std::fixed << std::setprecision(2) << R"(
-finished in )"
-            << util::format_duration(duration) << ", " << rps << " req/s, "
-            << util::utos_funit(as_unsigned(bps)) << R"(B/s
-requests: )" << stats.req_todo
-            << " total, " << stats.req_started << " started, " << stats.req_done
-            << " done, " << stats.req_status_success << " succeeded, "
-            << stats.req_failed << " failed, " << stats.req_error
-            << " errored, " << stats.req_timedout << R"( timeout
-status codes: )"
-            << stats.status[2] << " 2xx, " << stats.status[3] << " 3xx, "
-            << stats.status[4] << " 4xx, " << stats.status[5] << R"( 5xx
-traffic: )" << util::utos_funit(as_unsigned(stats.bytes_total))
-            << "B (" << stats.bytes_total << ") total, "
-            << util::utos_funit(as_unsigned(stats.bytes_head)) << "B ("
-            << stats.bytes_head << ") headers (space savings "
-            << header_space_savings * 100 << "%), "
-            << util::utos_funit(as_unsigned(stats.bytes_body)) << "B ("
-            << stats.bytes_body << R"() data)" << std::endl;
+  std::println("");
+  std::println("finished in {}, {:.2f} req/s, {}B/s",
+               util::format_duration(duration), rps,
+               util::utos_funit(as_unsigned(bps)));
+  std::println("requests: {} total, {} started, {} done, {} succeeded, {} "
+               "failed, {} errored, {} timeout",
+               stats.req_todo, stats.req_started, stats.req_done,
+               stats.req_status_success, stats.req_failed, stats.req_error,
+               stats.req_timedout);
+  std::println("status codes: {} 2xx, {} 3xx, {} 4xx, {} 5xx", stats.status[2],
+               stats.status[3], stats.status[4], stats.status[5]);
+  std::println(
+    "traffic: {}B ({}) total, {}B ({}) headers (space savings {:.2f}%), {}B "
+    "({}) data",
+    util::utos_funit(as_unsigned(stats.bytes_total)), stats.bytes_total,
+    util::utos_funit(as_unsigned(stats.bytes_head)), stats.bytes_head,
+    header_space_savings * 100, util::utos_funit(as_unsigned(stats.bytes_body)),
+    stats.bytes_body);
+
 #ifdef ENABLE_HTTP3
   if (config.is_quic()) {
-    std::cout << "UDP datagram: " << stats.udp_dgram_sent << " sent, "
-              << stats.udp_dgram_recv << " received" << std::endl;
+    std::println("UDP datagram: {} sent, {} received", stats.udp_dgram_sent,
+                 stats.udp_dgram_recv);
   }
 #endif // defined(ENABLE_HTTP3)
-  std::cout << "                 min         max         median     p95    "
-               "    p99        mean         sd        +/- sd\n";
+  std::println("                 "
+               "min         max         median      p95         "
+               "p99         mean        sd         +/- sd");
 
-  output_sd_stat_duration(std::cout, "request"sv, ts.request);
-  output_sd_stat_duration(std::cout, "connect"sv, ts.connect);
-  output_sd_stat_duration(std::cout, "TTFB"sv, ts.ttfb);
-  output_sd_stat(std::cout, "req/s"sv, ts.rps);
+  output_sd_stat_duration(stdout, "request"sv, ts.request);
+  output_sd_stat_duration(stdout, "connect"sv, ts.connect);
+  output_sd_stat_duration(stdout, "TTFB"sv, ts.ttfb);
+  output_sd_stat(stdout, "req/s"sv, ts.rps);
 #ifdef ENABLE_HTTP3
   if (config.is_quic()) {
-    output_sd_stat_duration(std::cout, "min RTT"sv, ts.min_rtt);
-    output_sd_stat_duration(std::cout, "smoothed RTT"sv, ts.smoothed_rtt);
-    output_sd_stat(std::cout, "packets sent"sv, ts.pkt_sent);
-    output_sd_stat(std::cout, "packets recv"sv, ts.pkt_recv);
-    output_sd_stat(std::cout, "packets lost"sv, ts.pkt_lost);
-    output_sd_stat(std::cout, "GRO packets"sv, ts.gro_pkts);
+    output_sd_stat_duration(stdout, "min RTT"sv, ts.min_rtt);
+    output_sd_stat_duration(stdout, "smoothed RTT"sv, ts.smoothed_rtt);
+    output_sd_stat(stdout, "packets sent"sv, ts.pkt_sent);
+    output_sd_stat(stdout, "packets recv"sv, ts.pkt_recv);
+    output_sd_stat(stdout, "packets lost"sv, ts.pkt_lost);
+    output_sd_stat(stdout, "GRO packets"sv, ts.gro_pkts);
   }
 #endif // ENABLE_HTTP3
 
