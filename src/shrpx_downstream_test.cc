@@ -24,8 +24,6 @@
  */
 #include "shrpx_downstream_test.h"
 
-#include <iostream>
-
 #include "munitxx.h"
 
 #include "shrpx_downstream.h"

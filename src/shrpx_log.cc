@@ -44,8 +44,8 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
-#include <iostream>
 #include <iomanip>
+#include <print>
 
 #include "shrpx_config.h"
 #include "shrpx_downstream.h"
@@ -802,8 +802,7 @@ std::expected<void, Error> reopen_log_files(const LoggingConfig &loggingconf) {
       if (lgconf->errorlog_fd != -1) {
         Log{ERROR} << "Failed to open errorlog file " << errorconf.file;
       } else {
-        std::cerr << "Failed to open errorlog file " << errorconf.file
-                  << std::endl;
+        std::println(stderr, "Failed to open errorlog file {}", errorconf.file);
       }
 
       res = std::unexpected{maybe_new_errorlog_fd.error()};

@@ -72,6 +72,7 @@
 #include <random>
 #include <span>
 #include <expected>
+#include <print>
 
 #include "ssl_compat.h"
 
@@ -1864,12 +1865,12 @@ void fill_default_config(Config *config) {
 } // namespace
 
 namespace {
-void print_version(std::ostream &out) {
-  out << "nghttpx nghttp2/" NGHTTP2_VERSION
+void print_version() {
+  std::println("nghttpx nghttp2/" NGHTTP2_VERSION
 #ifdef ENABLE_HTTP3
-         " ngtcp2/" NGTCP2_VERSION " nghttp3/" NGHTTP3_VERSION
+               " ngtcp2/" NGTCP2_VERSION " nghttp3/" NGHTTP3_VERSION
 #endif // ENABLE_HTTP3
-      << std::endl;
+  );
 }
 } // namespace
 
@@ -4036,7 +4037,7 @@ int main(int argc, char **argv) {
       cmdcfgs.emplace_back(SHRPX_OPT_HTTP2_PROXY, "yes"sv);
       break;
     case 'v':
-      print_version(std::cout);
+      print_version();
       exit(EXIT_SUCCESS);
     case '?':
       util::show_candidates(argv[optind - 1], long_options);
