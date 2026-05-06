@@ -368,7 +368,7 @@ namespace {
 int htp_msg_begincb(llhttp_t *htp) {
   if (config.verbose) {
     print_timer();
-    std::cout << " HTTP Upgrade response" << std::endl;
+    std::println(" HTTP Upgrade response");
   }
   return 0;
 }
@@ -818,7 +818,7 @@ std::expected<void, Error> HttpClient::connected() {
 
   if (config.verbose) {
     print_timer();
-    std::cout << " Connected" << std::endl;
+    std::println(" Connected");
   }
 
   state = ClientState::CONNECTED;
@@ -971,7 +971,7 @@ std::expected<void, Error> HttpClient::on_upgrade_connect() {
 
   if (config.verbose) {
     print_timer();
-    std::cout << " HTTP Upgrade request\n" << req << std::endl;
+    std::println(" HTTP Upgrade request\n{}", req);
   }
 
   if (!reqvec[0]->data_prd) {
@@ -998,8 +998,7 @@ HttpClient::on_upgrade_read(std::span<const uint8_t> data) {
                                        data.data());
 
   if (config.verbose) {
-    std::cout.write(reinterpret_cast<const char *>(data.data()),
-                    static_cast<std::streamsize>(nread));
+    fwrite(data.data(), 1, nread, stdout);
   }
 
   if (htperr != HPE_OK && htperr != HPE_PAUSED_UPGRADE) {
@@ -1014,7 +1013,7 @@ HttpClient::on_upgrade_read(std::span<const uint8_t> data) {
   }
 
   if (config.verbose) {
-    std::cout << std::endl;
+    std::println("");
   }
 
   if (upgrade_response_status_code != 101) {
@@ -1025,7 +1024,7 @@ HttpClient::on_upgrade_read(std::span<const uint8_t> data) {
 
   if (config.verbose) {
     print_timer();
-    std::cout << " HTTP Upgrade success" << std::endl;
+    std::println(" HTTP Upgrade success");
   }
 
   on_readfn = &HttpClient::on_read;
@@ -1059,7 +1058,7 @@ std::expected<void, Error> HttpClient::connection_made() {
     if (next_proto) {
       auto proto = as_string_view(next_proto, next_proto_len);
       if (config.verbose) {
-        std::cout << "The negotiated protocol: " << proto << std::endl;
+        std::println("The negotiated protocol: {}", proto);
       }
       if (!util::check_h2_is_selected(proto)) {
         next_proto = nullptr;
@@ -1647,8 +1646,7 @@ int on_data_chunk_recv_callback(nghttp2_session *session, uint8_t flags,
       out = out.first(outlen);
 
       if (!config.null_out) {
-        std::cout.write(reinterpret_cast<const char *>(out.data()),
-                        static_cast<std::streamsize>(out.size()));
+        fwrite(out.data(), 1, out.size(), stdout);
       }
 
       update_html_parser(client, req, out, 0);
@@ -1659,8 +1657,7 @@ int on_data_chunk_recv_callback(nghttp2_session *session, uint8_t flags,
   }
 
   if (!config.null_out) {
-    std::cout.write(reinterpret_cast<const char *>(chunk.data()),
-                    static_cast<std::streamsize>(chunk.size()));
+    fwrite(chunk.data(), 1, chunk.size(), stdout);
   }
 
   update_html_parser(client, req, chunk, 0);
@@ -2077,7 +2074,7 @@ struct RequestResult {
 
 namespace {
 void print_stats(const HttpClient &client) {
-  std::cout << "***** Statistics *****" << std::endl;
+  std::println("***** Statistics *****");
 
   std::vector<Request *> reqs;
   reqs.reserve(client.reqvec.size());
@@ -2095,7 +2092,7 @@ void print_stats(const HttpClient &client) {
             ltiming.request_start_time < rtiming.request_start_time);
   });
 
-  std::cout << R"(
+  std::println(R"(
 Request timing:
   responseEnd: the  time  when  last  byte of  response  was  received
                relative to connectEnd
@@ -2112,8 +2109,7 @@ see http://www.w3.org/TR/resource-timing/#processing-model
 
 sorted by 'complete'
 
-id  responseEnd requestStart  process code size request path)"
-            << std::endl;
+id  responseEnd requestStart  process code size request path)");
 
   const auto &base = client.timing.connect_end_time;
   for (const auto &req : reqs) {
@@ -2125,14 +2121,12 @@ id  responseEnd requestStart  process code size request path)"
       req->timing.response_end_time - req->timing.request_start_time);
     auto pushed = req->stream_id % 2 == 0;
 
-    std::cout << std::setw(3) << req->stream_id << " " << std::setw(11)
-              << ("+" + util::format_duration(response_end)) << " "
-              << (pushed ? "*" : " ") << std::setw(11)
-              << ("+" + util::format_duration(request_start)) << " "
-              << std::setw(8) << util::format_duration(total) << " "
-              << std::setw(4) << req->status << " " << std::setw(4)
-              << util::utos_unit(as_unsigned(req->response_len)) << " "
-              << req->make_reqpath() << std::endl;
+    std::println("{:3} {:>11} {}{:>11} {:>8} {:4} {:>4} {}", req->stream_id,
+                 "+" + util::format_duration(response_end), pushed ? "*" : " ",
+                 "+" + util::format_duration(request_start),
+                 util::format_duration(total), req->status,
+                 util::utos_unit(as_unsigned(req->response_len)),
+                 req->make_reqpath());
   }
 }
 } // namespace
@@ -2527,9 +2521,7 @@ int run(char **uris, int n) {
 } // namespace
 
 namespace {
-void print_version(std::ostream &out) {
-  out << "nghttp nghttp2/" NGHTTP2_VERSION << std::endl;
-}
+void print_version() { std::println("nghttp nghttp2/" NGHTTP2_VERSION); }
 } // namespace
 
 namespace {
@@ -2872,7 +2864,7 @@ int main(int argc, char **argv) {
         break;
       case 5:
         // version option
-        print_version(std::cout);
+        print_version();
         exit(EXIT_SUCCESS);
       case 6:
         // no-content-length option
