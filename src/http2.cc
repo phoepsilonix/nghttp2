@@ -566,9 +566,8 @@ int32_t determine_window_update_transmission(nghttp2_session *session,
 void dump_nv(FILE *out, const nghttp2_nv *nva, size_t nvlen) {
   auto end = nva + nvlen;
   for (; nva != end; ++nva) {
-    std::println(out, "{}: {}",
-                 as_string_view(std::span{nva->name, nva->namelen}),
-                 as_string_view(std::span{nva->value, nva->valuelen}));
+    std::println(out, "{}: {}", as_string_view(nva->name, nva->namelen),
+                 as_string_view(nva->value, nva->valuelen));
   }
   std::println(out, "");
   fflush(out);
