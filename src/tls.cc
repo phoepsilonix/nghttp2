@@ -28,7 +28,6 @@
 #include <cstring>
 #include <vector>
 #include <mutex>
-#include <iostream>
 #include <fstream>
 
 #ifdef HAVE_LIBBROTLI

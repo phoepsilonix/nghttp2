@@ -33,7 +33,6 @@
 #endif // defined(HAVE_NETDB_H)
 
 #include <cstring>
-#include <iostream>
 #include <random>
 
 #include "munitxx.h"

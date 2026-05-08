@@ -37,7 +37,7 @@
 #include <cerrno>
 #include <cstdlib>
 #include <vector>
-#include <iostream>
+#include <print>
 
 #include <jansson.h>
 
@@ -220,7 +220,7 @@ static int perform(void) {
 }
 
 static void print_help(void) {
-  std::cout << R"(HPACK HTTP/2 header decoder
+  std::println(R"(HPACK HTTP/2 header decoder
 Usage: inflatehd [OPTIONS] < INPUT
 
 Reads JSON  data from stdin  and outputs inflated name/value  pairs in
@@ -237,22 +237,20 @@ compressed header block in hex string.
 
 Example:
 
-{
+{{
   "context": "request",
   "cases":
   [
-    { "wire": "0284f77778ff" },
-    { "wire": "0185fafd3c3c7f81" }
+    {{ "wire": "0284f77778ff" }},
+    {{ "wire": "0185fafd3c3c7f81" }}
   ]
-}
+}}
 
 The output of this program can be used as input for deflatehd.
 
 OPTIONS:
     -d, --dump-header-table
-                      Output dynamic header table.)"
-            << std::endl;
-  ;
+                      Output dynamic header table.)");
 }
 
 constexpr static struct option long_options[] = {

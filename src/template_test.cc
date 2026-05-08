@@ -25,7 +25,6 @@
 #include "template_test.h"
 
 #include <cstring>
-#include <iostream>
 #ifndef __APPLE__
 #  include <spanstream>
 #endif // !defined(__APPLE__)
