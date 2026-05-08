@@ -148,8 +148,8 @@ const char *ansi_escend() { return color_output ? "\033[0m" : ""; }
 namespace {
 void print_nv(nghttp2_nv *nv) {
   std::println(outfile, "{}{}{}: {}", ansi_esc("\033[1;34m"),
-               as_string_view(std::span{nv->name, nv->namelen}), ansi_escend(),
-               as_string_view(std::span{nv->value, nv->valuelen}));
+               as_string_view(nv->name, nv->namelen), ansi_escend(),
+               as_string_view(nv->value, nv->valuelen));
 }
 } // namespace
 namespace {
@@ -352,10 +352,9 @@ void print_frame(print_type ptype, const nghttp2_frame *frame) {
   case NGHTTP2_ALTSVC: {
     auto altsvc = static_cast<nghttp2_ext_altsvc *>(frame->ext.payload);
     print_frame_attr_indent();
-    std::println(
-      outfile, "(origin=[{}], altsvc_field_value=[{}])",
-      as_string_view(std::span{altsvc->origin, altsvc->origin_len}),
-      as_string_view(std::span{altsvc->field_value, altsvc->field_value_len}));
+    std::println(outfile, "(origin=[{}], altsvc_field_value=[{}])",
+                 as_string_view(altsvc->origin, altsvc->origin_len),
+                 as_string_view(altsvc->field_value, altsvc->field_value_len));
     break;
   }
   case NGHTTP2_ORIGIN: {
@@ -364,7 +363,7 @@ void print_frame(print_type ptype, const nghttp2_frame *frame) {
       auto ent = &origin->ov[i];
       print_frame_attr_indent();
       std::println(outfile, "[{}]",
-                   as_string_view(std::span{ent->origin, ent->origin_len}));
+                   as_string_view(ent->origin, ent->origin_len));
     }
     break;
   }
@@ -375,8 +374,8 @@ void print_frame(print_type ptype, const nghttp2_frame *frame) {
     std::println(outfile,
                  "(prioritized_stream_id={}, priority_field_value=[{}])",
                  priority_update->stream_id,
-                 as_string_view(std::span{priority_update->field_value,
-                                          priority_update->field_value_len}));
+                 as_string_view(priority_update->field_value,
+                                priority_update->field_value_len));
     break;
   }
   default:
@@ -457,7 +456,7 @@ int verbose_on_data_chunk_recv_callback(nghttp2_session *session, uint8_t flags,
 int verbose_error_callback(nghttp2_session *session, int lib_error_code,
                            const char *msg, size_t len, void *user_data) {
   print_timer();
-  std::println(outfile, " [ERROR] {}", as_string_view(std::span{msg, len}));
+  std::println(outfile, " [ERROR] {}", as_string_view(msg, len));
   fflush(outfile);
 
   return 0;

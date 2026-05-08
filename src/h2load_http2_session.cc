@@ -55,8 +55,8 @@ int on_header_callback(nghttp2_session *session, const nghttp2_frame *frame,
 
   if (client->worker->config->verbose) {
     std::println("[stream_id={}] {}: {}", frame->hd.stream_id,
-                 as_string_view(std::span{name, namelen}),
-                 as_string_view(std::span{value, valuelen}));
+                 as_string_view(name, namelen),
+                 as_string_view(value, valuelen));
   }
 
   return 0;
