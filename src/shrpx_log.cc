@@ -229,42 +229,6 @@ Log &Log::operator<<(const ImmutableString &s) {
   return *this;
 }
 
-Log &Log::operator<<(double n) {
-  if (full_) {
-    return *this;
-  }
-
-  auto left = wleft();
-  auto rv = snprintf(reinterpret_cast<char *>(last_), left, "%.9f", n);
-  if (rv > static_cast<int>(left)) {
-    full_ = true;
-    return *this;
-  }
-
-  last_ += rv;
-  update_full();
-
-  return *this;
-}
-
-Log &Log::operator<<(long double n) {
-  if (full_) {
-    return *this;
-  }
-
-  auto left = wleft();
-  auto rv = snprintf(reinterpret_cast<char *>(last_), left, "%.9Lf", n);
-  if (rv > static_cast<int>(left)) {
-    full_ = true;
-    return *this;
-  }
-
-  last_ += rv;
-  update_full();
-
-  return *this;
-}
-
 Log &Log::operator<<(bool n) {
   if (full_) {
     return *this;

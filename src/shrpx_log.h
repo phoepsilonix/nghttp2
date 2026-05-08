@@ -36,6 +36,8 @@
 #include <ranges>
 #include <source_location>
 #include <expected>
+#include <charconv>
+#include <concepts>
 
 #include "shrpx_log_config.h"
 #include "tls.h"
@@ -165,9 +167,27 @@ public:
 
     return *this;
   }
-  Log &operator<<(float n) { return *this << static_cast<double>(n); }
-  Log &operator<<(double n);
-  Log &operator<<(long double n);
+  template <std::floating_point T> Log &operator<<(T n) {
+    if (full_) {
+      return *this;
+    }
+
+    auto left = wleft();
+    auto first = reinterpret_cast<char *>(last_);
+
+    auto rv =
+      std::to_chars(first, first + left, n, std::chars_format::fixed, 9);
+    if (rv.ec != std::errc{}) {
+      full_ = true;
+      return *this;
+    }
+
+    last_ = reinterpret_cast<uint8_t *>(rv.ptr);
+
+    update_full();
+
+    return *this;
+  }
   Log &operator<<(bool n);
   Log &operator<<(const void *p);
   template <typename T> Log &operator<<(const std::shared_ptr<T> &ptr) {
