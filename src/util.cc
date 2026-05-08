@@ -57,12 +57,12 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
-#include <iostream>
 #include <fstream>
 #include <iomanip>
 #ifdef _WIN32
 #  include <spanstream>
 #endif // defined(_WIN32)
+#include <print>
 
 #include "ssl_compat.h"
 
@@ -727,12 +727,12 @@ void show_candidates(const char *unkopt, const option *options) {
   if (threshold > 6) {
     return;
   }
-  std::cerr << "\nDid you mean:\n";
+  std::println(stderr, "\nDid you mean:");
   for (auto &item : cands) {
     if (item.first > threshold) {
       break;
     }
-    std::cerr << "\t--" << item.second << "\n";
+    std::println(stderr, "\t--{}", item.second);
   }
 }
 

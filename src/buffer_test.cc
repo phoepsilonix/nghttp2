@@ -25,7 +25,6 @@
 #include "buffer_test.h"
 
 #include <cstring>
-#include <iostream>
 #include <tuple>
 
 #include "munitxx.h"

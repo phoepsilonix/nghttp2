@@ -37,7 +37,7 @@
 #include <cerrno>
 #include <cstdlib>
 #include <vector>
-#include <iostream>
+#include <print>
 
 #include <jansson.h>
 
@@ -311,7 +311,7 @@ static int perform_from_http1text(void) {
 }
 
 static void print_help(void) {
-  std::cout << R"(HPACK HTTP/2 header encoder
+  std::println(R"(HPACK HTTP/2 header encoder
 Usage: deflatehd [OPTIONS] < INPUT
 
 Reads JSON data  or HTTP/1-style header fields from  stdin and outputs
@@ -327,24 +327,24 @@ is a JSON object  and it must have at least  "headers" key.  Its value
 is an array of a JSON object containing exactly one name/value pair.
 
 Example:
-{
+{{
   "context": "request",
   "cases":
   [
-    {
+    {{
       "headers": [
-        { ":method": "GET" },
-        { ":path": "/" }
+        {{ ":method": "GET" }},
+        {{ ":path": "/" }}
       ]
-    },
-    {
+    }},
+    {{
       "headers": [
-        { ":method": "POST" },
-        { ":path": "/" }
+        {{ ":method": "POST" }},
+        {{ ":path": "/" }}
       ]
-    }
+    }}
   ]
-}
+}}
 
 With  -t option,  the program  can accept  more familiar  HTTP/1 style
 header field  block.  Each header  set must  be followed by  one empty
@@ -375,8 +375,7 @@ OPTIONS:
                       buffer.
                       Default: 4096
     -d, --dump-header-table
-                      Output dynamic header table.)"
-            << std::endl;
+                      Output dynamic header table.)");
 }
 
 constexpr static struct option long_options[] = {

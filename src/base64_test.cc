@@ -25,7 +25,6 @@
 #include "base64_test.h"
 
 #include <cstring>
-#include <iostream>
 
 #include "munitxx.h"
 
