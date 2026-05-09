@@ -594,32 +594,9 @@ worker_process_event_loop(WorkerProcessConfig *wpconf) {
   }
 
   for (auto &qkm : qkms->keying_materials) {
-    if (auto rv = generate_quic_connection_id_encryption_key(
-          qkm.cid_encryption_key, qkm.secret, qkm.salt);
-        !rv) {
-      Log{ERROR} << "Failed to generate QUIC Connection ID encryption key";
+    if (auto rv = qkm.init_ciphers(); !rv) {
       return rv;
     }
-
-    qkm.cid_encryption_ctx = EVP_CIPHER_CTX_new();
-    if (!EVP_EncryptInit_ex(qkm.cid_encryption_ctx, nghttp2::tls::aes_128_ecb(),
-                            nullptr, qkm.cid_encryption_key.data(), nullptr)) {
-      Log{ERROR}
-        << "Failed to initialize QUIC Connection ID encryption context";
-      return std::unexpected{Error::CRYPTO};
-    }
-
-    EVP_CIPHER_CTX_set_padding(qkm.cid_encryption_ctx, 0);
-
-    qkm.cid_decryption_ctx = EVP_CIPHER_CTX_new();
-    if (!EVP_DecryptInit_ex(qkm.cid_decryption_ctx, nghttp2::tls::aes_128_ecb(),
-                            nullptr, qkm.cid_encryption_key.data(), nullptr)) {
-      Log{ERROR}
-        << "Failed to initialize QUIC Connection ID decryption context";
-      return std::unexpected{Error::CRYPTO};
-    }
-
-    EVP_CIPHER_CTX_set_padding(qkm.cid_decryption_ctx, 0);
   }
 
   conn_handler->set_quic_keying_materials(std::move(qkms));

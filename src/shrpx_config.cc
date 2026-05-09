@@ -4942,6 +4942,13 @@ std::expected<Address, Error> resolve_hostname(const char *hostname,
 }
 
 #ifdef ENABLE_HTTP3
+QUICKeyingMaterial::QUICKeyingMaterial(const QUICKeyingMaterial &other) noexcept
+  : reserved{other.reserved},
+    secret{other.secret},
+    salt{other.salt},
+    cid_encryption_key{other.cid_encryption_key},
+    id{other.id} {}
+
 QUICKeyingMaterial::QUICKeyingMaterial(QUICKeyingMaterial &&other) noexcept
   : cid_encryption_ctx{std::exchange(other.cid_encryption_ctx, nullptr)},
     cid_decryption_ctx{std::exchange(other.cid_decryption_ctx, nullptr)},
@@ -4962,7 +4969,44 @@ QUICKeyingMaterial::~QUICKeyingMaterial() noexcept {
 }
 
 QUICKeyingMaterial &
+QUICKeyingMaterial::operator=(const QUICKeyingMaterial &other) noexcept {
+  if (this == &other) {
+    return *this;
+  }
+
+  if (cid_encryption_ctx) {
+    EVP_CIPHER_CTX_free(cid_encryption_ctx);
+    cid_encryption_ctx = nullptr;
+  }
+
+  if (cid_decryption_ctx) {
+    EVP_CIPHER_CTX_free(cid_decryption_ctx);
+    cid_decryption_ctx = nullptr;
+  }
+
+  reserved = other.reserved;
+  secret = other.secret;
+  salt = other.salt;
+  cid_encryption_key = other.cid_encryption_key;
+  id = other.id;
+
+  return *this;
+}
+
+QUICKeyingMaterial &
 QUICKeyingMaterial::operator=(QUICKeyingMaterial &&other) noexcept {
+  if (this == &other) {
+    return *this;
+  }
+
+  if (cid_encryption_ctx) {
+    EVP_CIPHER_CTX_free(cid_encryption_ctx);
+  }
+
+  if (cid_decryption_ctx) {
+    EVP_CIPHER_CTX_free(cid_decryption_ctx);
+  }
+
   cid_encryption_ctx = std::exchange(other.cid_encryption_ctx, nullptr);
   cid_decryption_ctx = std::exchange(other.cid_decryption_ctx, nullptr);
   reserved = other.reserved;
@@ -4972,6 +5016,37 @@ QUICKeyingMaterial::operator=(QUICKeyingMaterial &&other) noexcept {
   id = other.id;
 
   return *this;
+}
+
+std::expected<void, Error> QUICKeyingMaterial::init_ciphers() {
+  if (auto rv = generate_quic_connection_id_encryption_key(cid_encryption_key,
+                                                           secret, salt);
+      !rv) {
+    Log{ERROR} << "Failed to generate QUIC Connection ID encryption key";
+    return rv;
+  }
+
+  cid_encryption_ctx = EVP_CIPHER_CTX_new();
+  if (!cid_encryption_ctx ||
+      !EVP_EncryptInit_ex(cid_encryption_ctx, nghttp2::tls::aes_128_ecb(),
+                          nullptr, cid_encryption_key.data(), nullptr)) {
+    Log{ERROR} << "Failed to initialize QUIC Connection ID encryption context";
+    return std::unexpected{Error::CRYPTO};
+  }
+
+  EVP_CIPHER_CTX_set_padding(cid_encryption_ctx, 0);
+
+  cid_decryption_ctx = EVP_CIPHER_CTX_new();
+  if (!cid_decryption_ctx ||
+      !EVP_DecryptInit_ex(cid_decryption_ctx, nghttp2::tls::aes_128_ecb(),
+                          nullptr, cid_encryption_key.data(), nullptr)) {
+    Log{ERROR} << "Failed to initialize QUIC Connection ID decryption context";
+    return std::unexpected{Error::CRYPTO};
+  }
+
+  EVP_CIPHER_CTX_set_padding(cid_decryption_ctx, 0);
+
+  return {};
 }
 #endif // defined(ENABLE_HTTP3)
 

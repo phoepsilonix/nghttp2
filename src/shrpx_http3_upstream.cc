@@ -228,8 +228,7 @@ int get_new_connection_id(ngtcp2_conn *conn, ngtcp2_cid *cid, uint8_t *token,
   auto upstream = static_cast<Http3Upstream *>(user_data);
   auto handler = upstream->get_client_handler();
   auto worker = handler->get_worker();
-  auto conn_handler = worker->get_connection_handler();
-  auto &qkms = conn_handler->get_quic_keying_materials();
+  auto &qkms = worker->get_quic_keying_materials();
   auto &qkm = qkms->keying_materials.front();
 
   assert(SHRPX_QUIC_SCIDLEN == cidlen);
@@ -536,8 +535,7 @@ int path_validation(ngtcp2_conn *conn, uint32_t flags, const ngtcp2_path *path,
 std::expected<void, Error>
 Http3Upstream::send_new_token(const ngtcp2_addr *remote_addr) {
   auto worker = handler_->get_worker();
-  auto conn_handler = worker->get_connection_handler();
-  auto &qkms = conn_handler->get_quic_keying_materials();
+  auto &qkms = worker->get_quic_keying_materials();
   auto &qkm = qkms->keying_materials.front();
 
   std::array<uint8_t, NGTCP2_CRYPTO_MAX_REGULAR_TOKENLEN + 1> tokenbuf;
@@ -585,7 +583,6 @@ Http3Upstream::init(const UpstreamAddr *faddr, const Address &remote_addr,
   int rv;
 
   auto worker = handler_->get_worker();
-  auto conn_handler = worker->get_connection_handler();
 
   static constexpr auto callbacks = ngtcp2_callbacks{
     .recv_client_initial = ngtcp2_crypto_recv_client_initial_cb,
@@ -616,7 +613,7 @@ Http3Upstream::init(const UpstreamAddr *faddr, const Address &remote_addr,
   auto &quicconf = config->quic;
   auto &http3conf = config->http3;
 
-  auto &qkms = conn_handler->get_quic_keying_materials();
+  auto &qkms = worker->get_quic_keying_materials();
   auto &qkm = qkms->keying_materials.front();
 
   ngtcp2_cid scid;

@@ -130,7 +130,7 @@ void QUICConnectionHandler::handle_packet(const UpstreamAddr *faddr,
   if (it == std::ranges::end(connections_)) {
     ConnectionID decrypted_dcid;
 
-    auto &qkms = conn_handler->get_quic_keying_materials();
+    auto &qkms = worker_->get_quic_keying_materials();
     const QUICKeyingMaterial *qkm = nullptr;
 
     if (vc.dcidlen == SHRPX_QUIC_SCIDLEN) {
@@ -495,8 +495,7 @@ std::expected<void, Error> QUICConnectionHandler::send_retry(
   auto config = get_config();
   auto &quicconf = config->quic;
 
-  auto conn_handler = worker_->get_connection_handler();
-  auto &qkms = conn_handler->get_quic_keying_materials();
+  auto &qkms = worker_->get_quic_keying_materials();
   auto &qkm = qkms->keying_materials.front();
 
   ngtcp2_cid retry_scid;
@@ -614,8 +613,7 @@ std::expected<void, Error> QUICConnectionHandler::send_stateless_reset(
 
   ngtcp2_cid_init(&cid, dcid.data(), dcid.size());
 
-  auto conn_handler = worker_->get_connection_handler();
-  auto &qkms = conn_handler->get_quic_keying_materials();
+  auto &qkms = worker_->get_quic_keying_materials();
   auto &qkm = qkms->keying_materials.front();
 
   if (auto rv = generate_quic_stateless_reset_token(token, cid, qkm.secret);

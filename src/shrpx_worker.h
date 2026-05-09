@@ -396,6 +396,14 @@ public:
   // Returns a pointer to UpstreamAddr which matches |local_addr|.
   std::expected<const UpstreamAddr *, Error>
   find_quic_upstream_addr(const Address &local_addr);
+
+  std::expected<void, Error>
+  setup_quic_keying_materials(const std::shared_ptr<QUICKeyingMaterials> &qkms);
+
+  [[nodiscard]] const std::unique_ptr<QUICKeyingMaterials> &
+  get_quic_keying_materials() const {
+    return quic_keying_materials_;
+  }
 #endif // defined(ENABLE_HTTP3)
 
   DNSTracker *get_dns_tracker();
@@ -426,6 +434,7 @@ private:
 
 #ifdef ENABLE_HTTP3
   WorkerID worker_id_;
+  std::unique_ptr<QUICKeyingMaterials> quic_keying_materials_;
   std::vector<UpstreamAddr> quic_upstream_addrs_;
   std::vector<std::unique_ptr<QUICListener>> quic_listeners_;
 #endif // defined(ENABLE_HTTP3)

@@ -167,7 +167,6 @@ public:
                       const WorkerID &wid, std::span<const uint8_t> data);
 
   void set_quic_keying_materials(std::shared_ptr<QUICKeyingMaterials> qkms);
-  const std::shared_ptr<QUICKeyingMaterials> &get_quic_keying_materials() const;
 
   void set_worker_ids(std::vector<WorkerID> worker_ids);
   std::expected<Worker *, Error> find_worker(const WorkerID &wid) const;
