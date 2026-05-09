@@ -257,18 +257,18 @@ read_tls_ticket_key_file(const std::vector<std::string_view> &files,
 }
 
 #ifdef ENABLE_HTTP3
-std::shared_ptr<QUICKeyingMaterials>
+std::expected<std::unique_ptr<QUICKeyingMaterials>, Error>
 read_quic_secret_file(std::string_view path) {
   constexpr size_t expectedlen =
     SHRPX_QUIC_SECRET_RESERVEDLEN + SHRPX_QUIC_SECRETLEN + SHRPX_QUIC_SALTLEN;
 
-  auto qkms = std::make_shared<QUICKeyingMaterials>();
+  auto qkms = std::make_unique<QUICKeyingMaterials>();
   auto &kms = qkms->keying_materials;
 
   std::ifstream f(path.data());
   if (!f) {
     Log{ERROR} << "frontend-quic-secret-file: could not open file " << path;
-    return nullptr;
+    return std::unexpected{Error::IO};
   }
 
   std::string line;
@@ -283,7 +283,7 @@ read_quic_secret_file(std::string_view path) {
     if (s.size() != expectedlen * 2 || !util::is_hex_string(s)) {
       Log{ERROR} << "frontend-quic-secret-file: each line must be a "
                  << expectedlen * 2 << " bytes hex encoded string";
-      return nullptr;
+      return std::unexpected{Error::INVALID_CONFIG};
     }
 
     kms.emplace_back();
@@ -312,14 +312,14 @@ read_quic_secret_file(std::string_view path) {
     Log{ERROR}
       << "frontend-quic-secret-file: error occurred while reading file "
       << path;
-    return nullptr;
+    return std::unexpected{Error::IO};
   }
 
   if (kms.empty()) {
     Log{WARN}
       << "frontend-quic-secret-file: no keying materials are present in file "
       << path;
-    return nullptr;
+    return std::unexpected{Error::INVALID_CONFIG};
   }
 
   return qkms;

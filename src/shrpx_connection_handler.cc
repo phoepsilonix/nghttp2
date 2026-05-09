@@ -604,7 +604,7 @@ std::expected<void, Error> ConnectionHandler::forward_quic_packet(
 }
 
 void ConnectionHandler::set_quic_keying_materials(
-  std::shared_ptr<QUICKeyingMaterials> qkms) {
+  std::unique_ptr<QUICKeyingMaterials> qkms) {
   quic_keying_materials_ = std::move(qkms);
 }
 
