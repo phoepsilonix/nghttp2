@@ -209,6 +209,12 @@ std::expected<void, Error> ConnectionHandler::create_single_worker() {
   }
 
 #ifdef ENABLE_HTTP3
+  if (auto rv =
+        single_worker_->setup_quic_keying_materials(quic_keying_materials_);
+      !rv) {
+    return rv;
+  }
+
   if (auto rv = single_worker_->setup_quic_server_socket(); !rv) {
     return rv;
   }
@@ -294,6 +300,11 @@ std::expected<void, Error> ConnectionHandler::create_worker_thread(size_t num) {
     }
 
 #  ifdef ENABLE_HTTP3
+    if (auto rv = worker->setup_quic_keying_materials(quic_keying_materials_);
+        !rv) {
+      return rv;
+    }
+
     if (!apiconf.enabled || i != 0) {
       if (auto rv = worker->setup_quic_server_socket(); !rv) {
         return rv;
@@ -595,11 +606,6 @@ std::expected<void, Error> ConnectionHandler::forward_quic_packet(
 void ConnectionHandler::set_quic_keying_materials(
   std::shared_ptr<QUICKeyingMaterials> qkms) {
   quic_keying_materials_ = std::move(qkms);
-}
-
-const std::shared_ptr<QUICKeyingMaterials> &
-ConnectionHandler::get_quic_keying_materials() const {
-  return quic_keying_materials_;
 }
 
 void ConnectionHandler::set_worker_ids(std::vector<WorkerID> worker_ids) {

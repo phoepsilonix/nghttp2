@@ -624,11 +624,20 @@ struct TLSCertificate {
 #ifdef ENABLE_HTTP3
 struct QUICKeyingMaterial {
   QUICKeyingMaterial() noexcept = default;
+  // This copy constructor does not copy cid_encryption_ctx and
+  // cid_decryption_ctx from |other|.
+  QUICKeyingMaterial(const QUICKeyingMaterial &other) noexcept;
   QUICKeyingMaterial(QUICKeyingMaterial &&other) noexcept;
   ~QUICKeyingMaterial() noexcept;
+  // This copy assignment operator does not copy cid_encryption_ctx
+  // and cid_decryption_ctx from |other|.  The original
+  // cid_encryption_ctx and cid_decryption_ctx are deleted if they are
+  // not nullptr, and initialized to nullptr.
+  QUICKeyingMaterial &operator=(const QUICKeyingMaterial &other) noexcept;
   QUICKeyingMaterial &operator=(QUICKeyingMaterial &&other) noexcept;
-  EVP_CIPHER_CTX *cid_encryption_ctx;
-  EVP_CIPHER_CTX *cid_decryption_ctx;
+  std::expected<void, Error> init_ciphers();
+  EVP_CIPHER_CTX *cid_encryption_ctx{};
+  EVP_CIPHER_CTX *cid_decryption_ctx{};
   std::array<uint8_t, SHRPX_QUIC_SECRET_RESERVEDLEN> reserved;
   std::array<uint8_t, SHRPX_QUIC_SECRETLEN> secret;
   std::array<uint8_t, SHRPX_QUIC_SALTLEN> salt;

@@ -1347,8 +1347,8 @@ Worker::create_quic_server_socket(UpstreamAddr &faddr) {
         return std::unexpected{Error::BPF};
       }
 
-      auto &qkms = conn_handler_->get_quic_keying_materials();
-      auto &qkm = qkms->keying_materials.front();
+      assert(quic_keying_materials_);
+      auto &qkm = quic_keying_materials_->keying_materials.front();
 
       auto aes_key = bpf_object__find_map_by_name(obj, "aes_key");
       if (!aes_key) {
@@ -1514,6 +1514,20 @@ Worker::find_quic_upstream_addr(const Address &local_addr) {
       return fallback_faddr;
     },
     local_addr.skaddr);
+}
+
+std::expected<void, Error> Worker::setup_quic_keying_materials(
+  const std::shared_ptr<QUICKeyingMaterials> &qkms) {
+  quic_keying_materials_ = std::make_unique<QUICKeyingMaterials>();
+  quic_keying_materials_->keying_materials = qkms->keying_materials;
+
+  for (auto &qkm : quic_keying_materials_->keying_materials) {
+    if (auto rv = qkm.init_ciphers(); !rv) {
+      return rv;
+    }
+  }
+
+  return {};
 }
 #endif // defined(ENABLE_HTTP3)
 
