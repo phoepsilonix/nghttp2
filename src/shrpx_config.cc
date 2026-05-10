@@ -4583,7 +4583,7 @@ std::expected<void, Error> compute_affinity_hash(std::vector<AffinityHash> &res,
   for (auto i = 0; i < 20; ++i) {
     t.back() = static_cast<char>(i);
 
-    if (auto rv = util::sha256(buf.data(), t); !rv) {
+    if (auto rv = util::sha256(buf, t); !rv) {
       return rv;
     }
 

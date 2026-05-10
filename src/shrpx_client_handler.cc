@@ -720,7 +720,7 @@ namespace {
 uint32_t compute_affinity_from_ip(std::string_view ip) {
   std::array<uint8_t, 32> buf;
 
-  if (!util::sha256(buf.data(), ip)) {
+  if (!util::sha256(buf, ip)) {
     // Not sure when sha256 failed.  Just fall back to another
     // function.
     return util::hash32(ip);

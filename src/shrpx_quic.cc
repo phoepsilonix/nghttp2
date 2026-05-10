@@ -285,10 +285,11 @@ std::expected<void, Error>
 generate_quic_hashed_connection_id(ngtcp2_cid &dest, const Address &remote_addr,
                                    const Address &local_addr,
                                    const ngtcp2_cid &cid) {
+  std::array<uint8_t, 32> h;
+
+#ifdef NGHTTP2_GENUINE_OPENSSL
   auto ctx = EVP_MD_CTX_new();
   auto d = defer([ctx] { EVP_MD_CTX_free(ctx); });
-
-  std::array<uint8_t, 32> h;
   auto hlen = static_cast<unsigned int>(EVP_MD_size(nghttp2::tls::sha256()));
 
   if (!EVP_DigestInit_ex(ctx, nghttp2::tls::sha256(), nullptr) ||
@@ -300,6 +301,17 @@ generate_quic_hashed_connection_id(ngtcp2_cid &dest, const Address &remote_addr,
   }
 
   assert(hlen == h.size());
+#else  // !defined(NGHTTP2_GENUINE_OPENSSL)
+  SHA256_CTX ctx;
+
+  SHA256_Init(&ctx);
+  SHA256_Update(&ctx, remote_addr.as_sockaddr(), remote_addr.size());
+  SHA256_Update(&ctx, local_addr.as_sockaddr(), local_addr.size());
+  SHA256_Update(&ctx, cid.data, cid.datalen);
+  SHA256_Final(h.data(), &ctx);
+#endif // !defined(NGHTTP2_GENUINE_OPENSSL)
+
+  static_assert(h.size() >= sizeof(dest.data));
 
   std::ranges::copy_n(std::ranges::begin(h), sizeof(dest.data),
                       std::ranges::begin(dest.data));

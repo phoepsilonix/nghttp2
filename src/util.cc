@@ -1645,9 +1645,10 @@ uint32_t hash32(std::string_view s) {
   return h;
 }
 
+#ifdef NGHTTP2_GENUINE_OPENSSL
 namespace {
-std::expected<void, Error> message_digest(uint8_t *res, const EVP_MD *meth,
-                                          std::string_view s) {
+std::expected<void, Error> message_digest(uint8_t *dest, const EVP_MD *meth,
+                                          std::span<const uint8_t> s) {
   int rv;
 
   auto ctx = EVP_MD_CTX_new();
@@ -1669,7 +1670,7 @@ std::expected<void, Error> message_digest(uint8_t *res, const EVP_MD *meth,
 
   auto mdlen = static_cast<unsigned int>(EVP_MD_size(meth));
 
-  rv = EVP_DigestFinal_ex(ctx, res, &mdlen);
+  rv = EVP_DigestFinal_ex(ctx, dest, &mdlen);
   if (rv != 1) {
     return std::unexpected{Error::CRYPTO};
   }
@@ -1678,13 +1679,38 @@ std::expected<void, Error> message_digest(uint8_t *res, const EVP_MD *meth,
 }
 } // namespace
 
-std::expected<void, Error> sha256(uint8_t *res, std::string_view s) {
-  return message_digest(res, tls::sha256(), s);
+std::expected<void, Error> sha256(std::span<uint8_t, 32> dest,
+                                  std::span<const uint8_t> s) {
+  return message_digest(dest.data(), tls::sha256(), s);
 }
 
-std::expected<void, Error> sha1(uint8_t *res, std::string_view s) {
-  return message_digest(res, tls::sha1(), s);
+std::expected<void, Error> sha1(std::span<uint8_t, 20> dest,
+                                std::span<const uint8_t> s) {
+  return message_digest(dest.data(), tls::sha1(), s);
 }
+#else  // !defined(NGHTTP2_GENUINE_OPENSSL)
+std::expected<void, Error> sha256(std::span<uint8_t, 32> dest,
+                                  std::span<const uint8_t> s) {
+  SHA256_CTX h;
+
+  SHA256_Init(&h);
+  SHA256_Update(&h, s.data(), s.size());
+  SHA256_Final(dest.data(), &h);
+
+  return {};
+}
+
+std::expected<void, Error> sha1(std::span<uint8_t, 20> dest,
+                                std::span<const uint8_t> s) {
+  SHA_CTX h;
+
+  SHA1_Init(&h);
+  SHA1_Update(&h, s.data(), s.size());
+  SHA1_Final(dest.data(), &h);
+
+  return {};
+}
+#endif // !defined(NGHTTP2_GENUINE_OPENSSL)
 
 std::expected<std::string_view, Error> extract_host(std::string_view hostport) {
   if (hostport.empty()) {

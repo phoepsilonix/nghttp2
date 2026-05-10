@@ -1888,12 +1888,12 @@ bool contains_trailers(std::string_view s) {
 std::string_view make_websocket_accept_token(uint8_t *dest,
                                              std::string_view key) {
   static constexpr auto magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"sv;
-  std::array<char, base64::encode_length(16) + magic.size()> s;
+  std::array<uint8_t, base64::encode_length(16) + magic.size()> s;
   auto p = std::ranges::copy(key, std::ranges::begin(s)).out;
   std::ranges::copy(magic, p);
 
   std::array<uint8_t, 20> h;
-  if (!util::sha1(h.data(), as_string_view(s))) {
+  if (!util::sha1(h, s)) {
     return ""sv;
   }
 
