@@ -1316,10 +1316,26 @@ double int_pow(double x, size_t y);
 uint32_t hash32(std::string_view s);
 
 // Computes SHA-256 of |s|, and stores it in |buf|.
-std::expected<void, Error> sha256(uint8_t *buf, std::string_view s);
+std::expected<void, Error> sha256(std::span<uint8_t, 32> dest,
+                                  std::span<const uint8_t> s);
+
+template <std::ranges::contiguous_range R>
+requires(std::ranges::sized_range<R> &&
+         !std::is_convertible_v<R, std::span<const uint8_t>>)
+std::expected<void, Error> sha256(std::span<uint8_t, 32> dest, R &&r) {
+  return sha256(dest, as_uint8_span(std::span{r}));
+}
 
 // Computes SHA-1 of |s|, and stores it in |buf|.
-std::expected<void, Error> sha1(uint8_t *buf, std::string_view s);
+std::expected<void, Error> sha1(std::span<uint8_t, 20> dest,
+                                std::span<const uint8_t> s);
+
+template <std::ranges::contiguous_range R>
+requires(std::ranges::sized_range<R> &&
+         !std::is_convertible_v<R, std::span<const uint8_t>>)
+std::expected<void, Error> sha1(std::span<uint8_t, 20> dest, R &&r) {
+  return sha1(dest, as_uint8_span(std::span{r}));
+}
 
 // Returns host from |hostport|.  The returned string might not be
 // NULL-terminated.

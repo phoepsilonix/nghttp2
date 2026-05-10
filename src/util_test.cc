@@ -101,6 +101,8 @@ const MunitTest tests[]{
   munit_void_test(test_util_lowcase),
   munit_void_test(test_util_to_numeric_addr),
   munit_void_test(test_util_fieldeq),
+  munit_void_test(test_util_sha256),
+  munit_void_test(test_util_sha1),
   munit_test_end(),
 };
 } // namespace
@@ -1363,6 +1365,28 @@ void test_util_fieldeq(void) {
   assert_true(util::fieldeq(a.data(), u1, b.data(), u2, URLPARSE_PORT));
   assert_false(util::fieldeq(a.data(), u1, b.data(), u2, URLPARSE_PATH));
   assert_false(util::fieldeq(a.data(), u1, b.data(), u2, URLPARSE_HOST));
+}
+
+void test_util_sha256(void) {
+  static constexpr auto s = "All your base are belong to us."sv;
+  std::array<uint8_t, 32> md;
+
+  util::sha256(md, s);
+  auto mdhex = util::format_hex(md);
+
+  assert_stdsv_equal(
+    "c2c565a8c7dc220ed7d9ff2f34b40dae7864ef0b8189557f0d3b7360ef34e1cd"sv,
+    mdhex);
+}
+
+void test_util_sha1(void) {
+  static constexpr auto s = "All your base are belong to us."sv;
+  std::array<uint8_t, 20> md;
+
+  util::sha1(md, s);
+  auto mdhex = util::format_hex(md);
+
+  assert_stdsv_equal("6e65eeb0bab294dadf2297a7aa2315703ed5b958"sv, mdhex);
 }
 
 } // namespace shrpx
