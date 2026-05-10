@@ -58,6 +58,7 @@ const MunitTest tests[]{
   munit_void_test(test_http2_contains_trailers),
   munit_void_test(test_http2_check_transfer_encoding),
   munit_void_test(test_http2_capitalize),
+  munit_void_test(test_http2_make_websocket_accept_token),
   munit_test_end(),
 };
 } // namespace
@@ -1213,6 +1214,15 @@ void test_http2_capitalize(void) {
 
     m.reset();
   }
+}
+
+void test_http2_make_websocket_accept_token(void) {
+  std::array<uint8_t, base64::encode_length(20)> dest;
+
+  assert_stdsv_equal(
+    "XBQHBK544W3hcfGPAAFf0t3lU+8="sv,
+    http2::make_websocket_accept_token(dest, "uq3K/rqtyv66rcr+uq3K/g=="sv)
+      .value_or(""sv));
 }
 
 } // namespace shrpx
