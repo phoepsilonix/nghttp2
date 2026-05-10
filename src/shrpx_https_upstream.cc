@@ -1248,12 +1248,12 @@ HttpsUpstream::on_downstream_header_complete(Downstream *downstream) {
         return std::unexpected{Error::WEBSOCKET_HANDSHAKE};
       }
       std::array<uint8_t, base64::encode_length(20)> out;
-      auto accept = http2::make_websocket_accept_token(out.data(), key->value);
-      if (accept.empty()) {
-        return std::unexpected{Error::WEBSOCKET_HANDSHAKE};
+      auto maybe_accept = http2::make_websocket_accept_token(out, key->value);
+      if (!maybe_accept) {
+        return std::unexpected{maybe_accept.error()};
       }
       buf->append("Sec-WebSocket-Accept: "sv);
-      buf->append(accept);
+      buf->append(*maybe_accept);
       buf->append("\r\n"sv);
     } else {
       auto connection = resp.fs.header(http2::HD_CONNECTION);

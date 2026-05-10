@@ -838,10 +838,12 @@ void Downstream::check_upgrade_fulfilled_http1() {
       }
 
       std::array<uint8_t, base64::encode_length(20)> accept_buf;
-      auto expected =
-        http2::make_websocket_accept_token(accept_buf.data(), ws_key_);
 
-      upgraded_ = !expected.empty() && expected == accept->value;
+      auto maybe_expected =
+        http2::make_websocket_accept_token(accept_buf, ws_key_);
+
+      upgraded_ =
+        maybe_expected.has_value() && *maybe_expected == accept->value;
     } else {
       upgraded_ = resp_.http_status / 100 == 2;
     }

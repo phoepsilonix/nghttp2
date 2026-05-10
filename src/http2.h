@@ -426,12 +426,14 @@ construct_push_component(BlockAllocator &balloc, std::string_view base,
 // Returns true if te header field value |s| contains "trailers".
 bool contains_trailers(std::string_view s);
 
-// Creates Sec-WebSocket-Accept value for |key|.  The capacity of
-// buffer pointed by |dest| must have at least 24 bytes (base64
-// encoded length of 16 bytes data).  It returns empty string in case
-// of error.
-std::string_view make_websocket_accept_token(uint8_t *dest,
-                                             std::string_view key);
+// Creates Sec-WebSocket-Accept value for |key|.  The length of |key|
+// must be base64::encode_length(16), which is 24.  The result is
+// written to |dest|.  The function returns std::string_view that
+// references |dest|.  The length of return value is equal to
+// |dest|.size().
+std::expected<std::string_view, Error>
+make_websocket_accept_token(std::span<uint8_t, base64::encode_length(20)> dest,
+                            std::string_view key);
 
 // Returns true if HTTP version represents pre-HTTP/1.1 (e.g.,
 // HTTP/0.9 or HTTP/1.0).

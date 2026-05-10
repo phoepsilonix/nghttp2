@@ -1885,19 +1885,23 @@ bool contains_trailers(std::string_view s) {
   }
 }
 
-std::string_view make_websocket_accept_token(uint8_t *dest,
-                                             std::string_view key) {
+std::expected<std::string_view, Error>
+make_websocket_accept_token(std::span<uint8_t, base64::encode_length(20)> dest,
+                            std::string_view key) {
+  assert(key.size() == base64::encode_length(16));
+
   static constexpr auto magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"sv;
   std::array<uint8_t, base64::encode_length(16) + magic.size()> s;
   auto p = std::ranges::copy(key, std::ranges::begin(s)).out;
   std::ranges::copy(magic, p);
 
   std::array<uint8_t, 20> h;
-  if (!util::sha1(h, s)) {
-    return ""sv;
+  if (auto rv = util::sha1(h, s); !rv) {
+    return std::unexpected{rv.error()};
   }
 
-  return as_string_view(dest, base64::encode(h, dest));
+  return as_string_view(std::ranges::begin(dest),
+                        base64::encode(h, std::ranges::begin(dest)));
 }
 
 bool legacy_http1(int major, int minor) {
