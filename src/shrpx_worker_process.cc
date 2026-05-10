@@ -558,17 +558,19 @@ worker_process_event_loop(WorkerProcessConfig *wpconf) {
 #ifdef ENABLE_HTTP3
   auto &quicconf = config->quic;
 
-  std::shared_ptr<QUICKeyingMaterials> qkms;
+  std::unique_ptr<QUICKeyingMaterials> qkms;
 
   if (!quicconf.upstream.secret_file.empty()) {
-    qkms = read_quic_secret_file(quicconf.upstream.secret_file);
-    if (!qkms) {
+    auto maybe_qkms = read_quic_secret_file(quicconf.upstream.secret_file);
+    if (!maybe_qkms) {
       Log{WARN} << "Use QUIC keying materials generated internally";
+    } else {
+      qkms = std::move(*maybe_qkms);
     }
   }
 
   if (!qkms) {
-    qkms = std::make_shared<QUICKeyingMaterials>();
+    qkms = std::make_unique<QUICKeyingMaterials>();
     qkms->keying_materials.resize(1);
 
     auto &qkm = qkms->keying_materials.front();

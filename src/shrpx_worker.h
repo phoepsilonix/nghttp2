@@ -398,7 +398,7 @@ public:
   find_quic_upstream_addr(const Address &local_addr);
 
   std::expected<void, Error>
-  setup_quic_keying_materials(const std::shared_ptr<QUICKeyingMaterials> &qkms);
+  setup_quic_keying_materials(const std::unique_ptr<QUICKeyingMaterials> &qkms);
 
   [[nodiscard]] const std::unique_ptr<QUICKeyingMaterials> &
   get_quic_keying_materials() const {

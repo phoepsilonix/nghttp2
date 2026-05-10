@@ -1434,7 +1434,7 @@ read_tls_ticket_key_file(const std::vector<std::string_view> &files,
                          const EVP_CIPHER *cipher, const EVP_MD *hmac);
 
 #ifdef ENABLE_HTTP3
-std::shared_ptr<QUICKeyingMaterials>
+std::expected<std::unique_ptr<QUICKeyingMaterials>, Error>
 read_quic_secret_file(std::string_view path);
 #endif // defined(ENABLE_HTTP3)
 

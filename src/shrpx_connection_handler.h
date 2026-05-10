@@ -166,7 +166,7 @@ public:
                       const Address &local_addr, const ngtcp2_pkt_info &pi,
                       const WorkerID &wid, std::span<const uint8_t> data);
 
-  void set_quic_keying_materials(std::shared_ptr<QUICKeyingMaterials> qkms);
+  void set_quic_keying_materials(std::unique_ptr<QUICKeyingMaterials> qkms);
 
   void set_worker_ids(std::vector<WorkerID> worker_ids);
   std::expected<Worker *, Error> find_worker(const WorkerID &wid) const;
@@ -227,7 +227,7 @@ private:
 #  ifdef HAVE_LIBBPF
   std::vector<BPFRef> quic_bpf_refs_;
 #  endif // defined(HAVE_LIBBPF)
-  std::shared_ptr<QUICKeyingMaterials> quic_keying_materials_;
+  std::unique_ptr<QUICKeyingMaterials> quic_keying_materials_;
   std::vector<SSL_CTX *> quic_all_ssl_ctx_;
   std::vector<std::vector<SSL_CTX *>> quic_indexed_ssl_ctx_;
 #endif // defined(ENABLE_HTTP3)

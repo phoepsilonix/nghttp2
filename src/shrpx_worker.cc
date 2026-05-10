@@ -1517,7 +1517,7 @@ Worker::find_quic_upstream_addr(const Address &local_addr) {
 }
 
 std::expected<void, Error> Worker::setup_quic_keying_materials(
-  const std::shared_ptr<QUICKeyingMaterials> &qkms) {
+  const std::unique_ptr<QUICKeyingMaterials> &qkms) {
   quic_keying_materials_ = std::make_unique<QUICKeyingMaterials>();
   quic_keying_materials_->keying_materials = qkms->keying_materials;
 
