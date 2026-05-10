@@ -66,14 +66,6 @@ enum class Error {
   HTTP3,
   // QUIC library error (e.g., error from ngtcp2 API)
   QUIC,
-  // sending packet is blocked by kernel
-  SEND_BLOCKED,
-  // QUIC connection is in close-wait.
-  QUIC_CLOSE_WAIT,
-  // QUIC connection should be retried.
-  QUIC_RETRY_CONN,
-  // QUIC connection should be dropped.
-  QUIC_DROP_CONN,
   // QUIC token is unreadable, and should be ignored.
   QUIC_UNREADABLE_TOKEN,
   // Verification of QUIC token failed.
@@ -177,18 +169,6 @@ struct std::formatter<nghttp2::Error>
       break;
     case nghttp2::Error::QUIC:
       s = "QUIC"sv;
-      break;
-    case nghttp2::Error::SEND_BLOCKED:
-      s = "send blocked"sv;
-      break;
-    case nghttp2::Error::QUIC_CLOSE_WAIT:
-      s = "QUIC close wait"sv;
-      break;
-    case nghttp2::Error::QUIC_RETRY_CONN:
-      s = "QUIC retry connection"sv;
-      break;
-    case nghttp2::Error::QUIC_DROP_CONN:
-      s = "QUIC drop connection"sv;
       break;
     case nghttp2::Error::QUIC_UNREADABLE_TOKEN:
       s = "QUIC unreadable token"sv;

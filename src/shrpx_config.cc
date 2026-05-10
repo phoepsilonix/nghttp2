@@ -262,14 +262,14 @@ read_quic_secret_file(std::string_view path) {
   constexpr size_t expectedlen =
     SHRPX_QUIC_SECRET_RESERVEDLEN + SHRPX_QUIC_SECRETLEN + SHRPX_QUIC_SALTLEN;
 
-  auto qkms = std::make_unique<QUICKeyingMaterials>();
-  auto &kms = qkms->keying_materials;
-
   std::ifstream f(path.data());
   if (!f) {
     Log{ERROR} << "frontend-quic-secret-file: could not open file " << path;
     return std::unexpected{Error::IO};
   }
+
+  auto qkms = std::make_unique<QUICKeyingMaterials>();
+  auto &kms = qkms->keying_materials;
 
   std::string line;
 

@@ -1518,8 +1518,7 @@ Worker::find_quic_upstream_addr(const Address &local_addr) {
 
 std::expected<void, Error> Worker::setup_quic_keying_materials(
   const std::unique_ptr<QUICKeyingMaterials> &qkms) {
-  quic_keying_materials_ = std::make_unique<QUICKeyingMaterials>();
-  quic_keying_materials_->keying_materials = qkms->keying_materials;
+  quic_keying_materials_ = std::make_unique<QUICKeyingMaterials>(*qkms);
 
   for (auto &qkm : quic_keying_materials_->keying_materials) {
     if (auto rv = qkm.init_ciphers(); !rv) {
