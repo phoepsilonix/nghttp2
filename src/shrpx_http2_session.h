@@ -261,7 +261,7 @@ public:
 
   using ReadBuf = Buffer<8_k>;
 
-  Http2Session *dlnext, *dlprev;
+  Http2Session *dlnext{}, *dlprev{};
 
 private:
   Connection conn_;
@@ -290,21 +290,21 @@ private:
   std::shared_ptr<DownstreamAddrGroup> group_;
   // Address of remote endpoint
   DownstreamAddr *addr_;
-  nghttp2_session *session_;
+  nghttp2_session *session_{};
   // Actual remote address used to contact backend.  This is initially
   // nullptr, and may point to either &addr_->addr,
   // resolved_addr_.get(), or HTTP proxy's address structure.
-  const Address *raddr_;
+  const Address *raddr_{};
   // Resolved IP address if dns parameter is used
   std::unique_ptr<Address> resolved_addr_;
   std::unique_ptr<DNSQuery> dns_query_;
-  Http2SessionState state_;
-  ConnectionCheck connection_check_state_;
-  FreelistZone freelist_zone_;
+  Http2SessionState state_{Http2SessionState::DISCONNECTED};
+  ConnectionCheck connection_check_state_{ConnectionCheck::NONE};
+  FreelistZone freelist_zone_{FreelistZone::NONE};
   // true if SETTINGS without ACK is received from peer.
-  bool settings_recved_;
+  bool settings_recved_{};
   // true if peer enables RFC 8441 CONNECT protocol.
-  bool allow_connect_proto_;
+  bool allow_connect_proto_{};
 };
 
 nghttp2_session_callbacks *create_http2_downstream_callbacks();

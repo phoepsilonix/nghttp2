@@ -62,7 +62,7 @@ constexpr std::string_view API_METHOD_STRING[] = {
 };
 
 APIDownstreamConnection::APIDownstreamConnection(Worker *worker)
-  : worker_(worker), api_(nullptr), fd_(-1), shutdown_read_(false) {}
+  : worker_(worker) {}
 
 APIDownstreamConnection::~APIDownstreamConnection() {
   if (fd_ != -1) {

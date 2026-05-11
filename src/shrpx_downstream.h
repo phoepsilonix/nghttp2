@@ -534,13 +534,13 @@ public:
     EVENT_TIMEOUT = 0x2,
   };
 
-  Downstream *dlnext, *dlprev;
+  Downstream *dlnext{}, *dlprev{};
 
   // the length of response body sent to upstream client
-  int64_t response_sent_body_length;
+  int64_t response_sent_body_length{};
 
 private:
-  BlockAllocator balloc_;
+  BlockAllocator balloc_{1024, 1024};
 
   std::vector<nghttp2_rcbuf *> rcbufs_;
 #ifdef ENABLE_HTTP3
@@ -579,55 +579,55 @@ private:
   std::unique_ptr<DownstreamConnection> dconn_;
 
   // only used by HTTP/2 upstream
-  BlockedLink *blocked_link_;
+  BlockedLink *blocked_link_{};
   // The backend address used to fulfill this request.  These are for
   // logging purpose.
   std::shared_ptr<DownstreamAddrGroup> group_;
-  const DownstreamAddr *addr_;
+  const DownstreamAddr *addr_{};
   // How many times we tried in backend connection
-  size_t num_retry_;
+  size_t num_retry_{};
   // The stream ID in frontend connection
   int64_t stream_id_;
   // The associated stream ID in frontend connection if this is pushed
   // stream.
-  int64_t assoc_stream_id_;
+  int64_t assoc_stream_id_{-1};
   // stream ID in backend connection
-  int64_t downstream_stream_id_;
+  int64_t downstream_stream_id_{-1};
   // RST_STREAM error_code from downstream HTTP2 connection
-  uint32_t response_rst_stream_error_code_;
+  uint32_t response_rst_stream_error_code_{NGHTTP2_NO_ERROR};
   // An affinity cookie value.
-  uint32_t affinity_cookie_;
+  uint32_t affinity_cookie_{};
   // request state
-  DownstreamState request_state_;
+  DownstreamState request_state_{DownstreamState::INITIAL};
   // response state
-  DownstreamState response_state_;
+  DownstreamState response_state_{DownstreamState::INITIAL};
   // only used by HTTP/2 upstream
-  DispatchState dispatch_state_;
+  DispatchState dispatch_state_{DispatchState::NONE};
   // true if the connection is upgraded (HTTP Upgrade or CONNECT),
   // excluding upgrade to HTTP/2.
-  bool upgraded_;
+  bool upgraded_{};
   // true if backend request uses chunked transfer-encoding
-  bool chunked_request_;
+  bool chunked_request_{};
   // true if response to client uses chunked transfer-encoding
-  bool chunked_response_;
+  bool chunked_response_{};
   // true if we have not got final response code
-  bool expect_final_response_;
+  bool expect_final_response_{};
   // true if downstream request is pending because backend connection
   // has not been established or should be checked before use;
   // currently used only with HTTP/2 connection.
-  bool request_pending_;
+  bool request_pending_{};
   // true if downstream request header is considered to be sent.
-  bool request_header_sent_;
+  bool request_header_sent_{};
   // true if access.log has been written.
-  bool accesslog_written_;
+  bool accesslog_written_{};
   // true if affinity cookie is generated for this request.
-  bool new_affinity_cookie_;
+  bool new_affinity_cookie_{};
   // true if eof is received from client before sending header fields
   // to backend.
-  bool blocked_request_data_eof_;
+  bool blocked_request_data_eof_{};
   // true if request contains "expect: 100-continue" header field.
-  bool expect_100_continue_;
-  bool stop_reading_;
+  bool expect_100_continue_{};
+  bool stop_reading_{};
 };
 
 } // namespace shrpx

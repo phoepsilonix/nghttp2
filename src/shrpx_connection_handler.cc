@@ -68,20 +68,9 @@ void serial_event_async_cb(struct ev_loop *loop, ev_async *w, int revent) {
 } // namespace
 
 ConnectionHandler::ConnectionHandler(struct ev_loop *loop, std::mt19937 &gen)
-  :
-#ifdef ENABLE_HTTP3
-    quic_ipc_fd_(-1),
-#endif // defined(ENABLE_HTTP3)
-    gen_(gen),
-    single_worker_(nullptr),
+  : gen_(gen),
     loop_(loop),
-#ifdef HAVE_NEVERBLEED
-    nb_(nullptr),
-#endif // defined(HAVE_NEVERBLEED)
-    tls_ticket_key_memcached_get_retry_count_(0),
-    tls_ticket_key_memcached_fail_count_(0),
-    worker_round_robin_cnt_(get_config()->api.enabled ? 1 : 0),
-    graceful_shutdown_(false) {
+    worker_round_robin_cnt_(get_config()->api.enabled ? 1 : 0) {
   ev_async_init(&thread_join_asyncev_, thread_join_async_cb);
 
   ev_async_init(&serial_event_asyncev_, serial_event_async_cb);

@@ -206,19 +206,10 @@ HttpDownstreamConnection::HttpDownstreamConnection(
           {}, {}, connectcb, readcb, connect_timeoutcb, this,
           get_config()->tls.dyn_rec.warmup_threshold,
           get_config()->tls.dyn_rec.idle_timeout, Proto::HTTP1),
-    on_read_(&HttpDownstreamConnection::noop),
-    on_write_(&HttpDownstreamConnection::noop),
-    signal_write_(&HttpDownstreamConnection::void_noop),
     worker_(worker),
     ssl_ctx_(worker->get_cl_ssl_ctx()),
     group_(group),
-    addr_(addr),
-    raddr_(nullptr),
-    ioctrl_(&conn_.rlimit),
-    response_htp_{0},
-    first_write_done_(false),
-    reusable_(true),
-    request_header_written_(false) {}
+    addr_(addr) {}
 
 HttpDownstreamConnection::~HttpDownstreamConnection() {
   if (log_enabled(INFO)) {

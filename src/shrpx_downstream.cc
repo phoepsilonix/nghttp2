@@ -132,39 +132,14 @@ void downstream_wtimeoutcb(struct ev_loop *loop, ev_timer *w, int revents) {
 // upstream could be nullptr for unittests
 Downstream::Downstream(Upstream *upstream, MemchunkPool *mcpool,
                        int64_t stream_id)
-  : dlnext(nullptr),
-    dlprev(nullptr),
-    response_sent_body_length(0),
-    balloc_(1024, 1024),
-    req_(balloc_),
+  : req_(balloc_),
     resp_(balloc_),
     request_start_time_(std::chrono::steady_clock::now()),
     blocked_request_buf_(mcpool),
     request_buf_(mcpool),
     response_buf_(mcpool),
     upstream_(upstream),
-    blocked_link_(nullptr),
-    addr_(nullptr),
-    num_retry_(0),
-    stream_id_(stream_id),
-    assoc_stream_id_(-1),
-    downstream_stream_id_(-1),
-    response_rst_stream_error_code_(NGHTTP2_NO_ERROR),
-    affinity_cookie_(0),
-    request_state_(DownstreamState::INITIAL),
-    response_state_(DownstreamState::INITIAL),
-    dispatch_state_(DispatchState::NONE),
-    upgraded_(false),
-    chunked_request_(false),
-    chunked_response_(false),
-    expect_final_response_(false),
-    request_pending_(false),
-    request_header_sent_(false),
-    accesslog_written_(false),
-    new_affinity_cookie_(false),
-    blocked_request_data_eof_(false),
-    expect_100_continue_(false),
-    stop_reading_(false) {
+    stream_id_(stream_id) {
   auto config = get_config();
   auto &httpconf = config->http;
 

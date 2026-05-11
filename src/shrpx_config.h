@@ -560,12 +560,7 @@ struct AffinityHash {
 };
 
 struct DownstreamAddrGroupConfig {
-  DownstreamAddrGroupConfig(std::string_view pattern)
-    : pattern(pattern),
-      affinity{SessionAffinity::NONE},
-      redirect_if_not_tls(false),
-      dnf{false},
-      timeout{} {}
+  DownstreamAddrGroupConfig(std::string_view pattern) : pattern(pattern) {}
 
   std::string_view pattern;
   std::string_view mruby_file;
@@ -577,17 +572,17 @@ struct DownstreamAddrGroupConfig {
   // addrs.  It is only assigned when strict stickiness is enabled.
   std::unordered_map<uint32_t, size_t> affinity_hash_map;
   // Cookie based session affinity configuration.
-  AffinityConfig affinity;
+  AffinityConfig affinity{SessionAffinity::NONE};
   // true if this group requires that client connection must be TLS,
   // and the request must be redirected to https URI.
-  bool redirect_if_not_tls;
+  bool redirect_if_not_tls{};
   // true if a request should not be forwarded to a backend.
-  bool dnf;
+  bool dnf{};
   // Timeouts for backend connection.
   struct {
     ev_tstamp read;
     ev_tstamp write;
-  } timeout;
+  } timeout{};
 };
 
 struct TicketKey {
@@ -975,15 +970,7 @@ struct RouterConfig {
 };
 
 struct DownstreamConfig {
-  DownstreamConfig()
-    : balloc(1024, 1024),
-      timeout{},
-      addr_group_catch_all{0},
-      connections_per_host{0},
-      connections_per_frontend{0},
-      request_buffer_size{0},
-      response_buffer_size{0},
-      family{0} {}
+  DownstreamConfig() noexcept = default;
 
   DownstreamConfig(const DownstreamConfig &) = delete;
   DownstreamConfig(DownstreamConfig &&) = delete;
@@ -994,7 +981,7 @@ struct DownstreamConfig {
   // we may swap around DownstreamConfig in arbitrary times with API
   // calls, we should use their own allocator instead of per Config
   // allocator.
-  BlockAllocator balloc;
+  BlockAllocator balloc{1024, 1024};
   struct {
     ev_tstamp read;
     ev_tstamp write;
@@ -1004,19 +991,19 @@ struct DownstreamConfig {
     // backend or while detaching failed backend from load balancing
     // group temporarily.
     ev_tstamp max_backoff;
-  } timeout;
+  } timeout{};
   RouterConfig router;
   std::vector<DownstreamAddrGroupConfig> addr_groups;
   // The index of catch-all group in downstream_addr_groups.
-  size_t addr_group_catch_all;
-  size_t connections_per_host;
-  size_t connections_per_frontend;
-  size_t request_buffer_size;
-  size_t response_buffer_size;
+  size_t addr_group_catch_all{};
+  size_t connections_per_host{};
+  size_t connections_per_frontend{};
+  size_t request_buffer_size{};
+  size_t response_buffer_size{};
   // Address family of backend connection.  One of either AF_INET,
   // AF_INET6 or AF_UNSPEC.  This is ignored if backend connection
   // is made via Unix domain socket.
-  int family;
+  int family{};
 };
 
 struct ConnectionConfig {
@@ -1075,37 +1062,7 @@ struct DNSConfig {
 };
 
 struct Config {
-  Config()
-    : balloc(4096, 4096),
-      downstream_http_proxy{},
-      http{},
-      http2{},
-      tls{},
-#ifdef ENABLE_HTTP3
-      quic{},
-#endif // defined(ENABLE_HTTP3)
-      logging{},
-      conn{},
-      api{},
-      dns{},
-      config_revision{0},
-      num_worker{0},
-      padding{0},
-      rlimit_nofile{0},
-      rlimit_memlock{0},
-      uid{0},
-      gid{0},
-      pid{0},
-      verbose{false},
-      daemon{false},
-      http2_proxy{false},
-      single_process{false},
-      single_thread{false},
-      ignore_per_pattern_mruby_error{false},
-      ev_loop_flags{0},
-      max_worker_processes{0},
-      worker_process_grace_shutdown_period{0.} {
-  }
+  Config() noexcept = default;
   ~Config();
 
   Config(Config &&) = delete;
@@ -1116,19 +1073,19 @@ struct Config {
   // Allocator to allocate memory for this object except for
   // DownstreamConfig.  Currently, it is used to allocate memory for
   // strings.
-  BlockAllocator balloc;
-  HttpProxy downstream_http_proxy;
-  HttpConfig http;
-  Http2Config http2;
-  TLSConfig tls;
+  BlockAllocator balloc{4096, 4096};
+  HttpProxy downstream_http_proxy{};
+  HttpConfig http{};
+  Http2Config http2{};
+  TLSConfig tls{};
 #ifdef ENABLE_HTTP3
-  QUICConfig quic;
-  Http3Config http3;
+  QUICConfig quic{};
+  Http3Config http3{};
 #endif // defined(ENABLE_HTTP3)
-  LoggingConfig logging;
-  ConnectionConfig conn;
-  APIConfig api;
-  DNSConfig dns;
+  LoggingConfig logging{};
+  ConnectionConfig conn{};
+  APIConfig api{};
+  DNSConfig dns{};
   std::string_view pid_file;
   std::string_view conf_path;
   std::string_view user;
@@ -1139,27 +1096,27 @@ struct Config {
   // as "nghttpx-conf-rev" response header field.  The external
   // program can check this value to know whether reloading has
   // completed or not.
-  uint64_t config_revision;
-  size_t num_worker;
-  size_t padding;
-  size_t rlimit_nofile;
-  size_t rlimit_memlock;
-  uid_t uid;
-  gid_t gid;
-  pid_t pid;
-  bool verbose;
-  bool daemon;
-  bool http2_proxy;
+  uint64_t config_revision{};
+  size_t num_worker{};
+  size_t padding{};
+  size_t rlimit_nofile{};
+  size_t rlimit_memlock{};
+  uid_t uid{};
+  gid_t gid{};
+  pid_t pid{};
+  bool verbose{};
+  bool daemon{};
+  bool http2_proxy{};
   // Run nghttpx in single process mode.  With this mode, signal
   // handling is omitted.
-  bool single_process;
-  bool single_thread;
+  bool single_process{};
+  bool single_thread{};
   // Ignore mruby compile error for per-pattern mruby script.
-  bool ignore_per_pattern_mruby_error;
+  bool ignore_per_pattern_mruby_error{};
   // flags passed to ev_default_loop() and ev_loop_new()
-  uint32_t ev_loop_flags;
-  size_t max_worker_processes;
-  ev_tstamp worker_process_grace_shutdown_period;
+  uint32_t ev_loop_flags{};
+  size_t max_worker_processes{};
+  ev_tstamp worker_process_grace_shutdown_period{};
 };
 
 const Config *get_config();
