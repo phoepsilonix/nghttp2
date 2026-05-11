@@ -41,9 +41,9 @@ namespace shrpx {
 struct RNode {
   RNode();
   RNode(std::string_view s, ssize_t index, ssize_t wildcard_index);
-  RNode(RNode &&) = default;
+  RNode(RNode &&) noexcept = default;
   RNode(const RNode &) = delete;
-  RNode &operator=(RNode &&) = default;
+  RNode &operator=(RNode &&) noexcept = default;
   RNode &operator=(const RNode &) = delete;
 
   // Next RNode, sorted by s[0].
@@ -64,9 +64,9 @@ class Router {
 public:
   Router();
   ~Router();
-  Router(Router &&) = default;
+  Router(Router &&) noexcept = default;
   Router(const Router &) = delete;
-  Router &operator=(Router &&) = default;
+  Router &operator=(Router &&) noexcept = default;
   Router &operator=(const Router &) = delete;
 
   // Adds route |pattern| with its |index|.  If same pattern has

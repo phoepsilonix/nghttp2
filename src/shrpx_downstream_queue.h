@@ -52,8 +52,8 @@ public:
   struct HostEntry {
     HostEntry(ImmutableString &&key);
 
-    HostEntry(HostEntry &&) = default;
-    HostEntry &operator=(HostEntry &&) = default;
+    HostEntry(HostEntry &&) noexcept = default;
+    HostEntry &operator=(HostEntry &&) noexcept = default;
 
     HostEntry(const HostEntry &) = delete;
     HostEntry &operator=(const HostEntry &) = delete;
