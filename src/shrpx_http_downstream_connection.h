@@ -98,8 +98,10 @@ public:
 private:
   Connection conn_;
   std::function<std::expected<void, Error>(HttpDownstreamConnection &)>
-    on_read_, on_write_;
-  std::function<void(HttpDownstreamConnection &)> signal_write_;
+    on_read_{&HttpDownstreamConnection::noop},
+    on_write_{&HttpDownstreamConnection::noop};
+  std::function<void(HttpDownstreamConnection &)> signal_write_{
+    &HttpDownstreamConnection::void_noop};
   Worker *worker_;
   // nullptr if TLS is not used.
   SSL_CTX *ssl_ctx_;
@@ -109,18 +111,18 @@ private:
   // Actual remote address used to contact backend.  This is initially
   // nullptr, and may point to either &addr_->addr, or
   // resolved_addr_.get().
-  const Address *raddr_;
+  const Address *raddr_{};
   // Resolved IP address if dns parameter is used
   std::unique_ptr<Address> resolved_addr_;
   std::unique_ptr<DNSQuery> dns_query_;
-  IOControl ioctrl_;
-  llhttp_t response_htp_;
+  IOControl ioctrl_{&conn_.rlimit};
+  llhttp_t response_htp_{};
   // true if first write succeeded.
-  bool first_write_done_;
+  bool first_write_done_{};
   // true if this object can be reused
-  bool reusable_;
+  bool reusable_{true};
   // true if request header is written to request buffer.
-  bool request_header_written_;
+  bool request_header_written_{};
 };
 
 } // namespace shrpx

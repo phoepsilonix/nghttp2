@@ -102,17 +102,17 @@ private:
   std::expected<void, Error> handle_event(int rfd, int wfd);
 
   std::vector<std::unique_ptr<ev_io>> revs_, wevs_;
-  Address result_;
+  Address result_{};
   CompleteCb completeCb_;
   ev_timer timer_;
   std::string_view name_;
   struct ev_loop *loop_;
   // ares_channel is pointer type
-  ares_channel channel_;
+  ares_channel channel_{};
   // AF_INET or AF_INET6.  AF_INET for A record lookup, and AF_INET6
   // for AAAA record lookup.
-  int family_;
-  DNSResolverStatus status_;
+  int family_{AF_UNSPEC};
+  DNSResolverStatus status_{DNSResolverStatus::IDLE};
 };
 
 } // namespace shrpx

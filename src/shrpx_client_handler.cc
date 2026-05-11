@@ -432,17 +432,8 @@ std::expected<void, Error> ClientHandler::upstream_http1_connhd_read() {
 
 ClientHandler::ClientHandler(Worker *worker, int fd, SSL *ssl,
                              std::string_view ipaddr, std::string_view port,
-                             int family,
-                             const UpstreamAddr *faddr)
-  : // We use balloc_ for TLS session ID (64), ipaddr (IPv6) (39),
-    // port (5), forwarded-for (IPv6) (41), alpn (5), proxyproto
-    // ipaddr (15), proxyproto port (5), sni (32, estimated).  we
-    // need terminal NULL byte for each.  We also require 8 bytes
-    // header for each allocation.  We align at 16 bytes boundary,
-    // so the required space is 64 + 48 + 16 + 48 + 16 + 16 + 16 +
-    // 32 + 8 + 8 * 8 = 328.
-    balloc_(512, 512),
-    rb_(worker->get_mcpool()),
+                             int family, const UpstreamAddr *faddr)
+  : rb_(worker->get_mcpool()),
     conn_(worker->get_loop(), fd, ssl, worker->get_mcpool(),
           get_config()->conn.upstream.timeout.write,
           get_config()->conn.upstream.timeout.idle,
@@ -454,11 +445,7 @@ ClientHandler::ClientHandler(Worker *worker, int fd, SSL *ssl,
     ipaddr_(make_string_ref(balloc_, ipaddr)),
     port_(make_string_ref(balloc_, port)),
     faddr_(faddr),
-    worker_(worker),
-    left_connhd_len_(NGHTTP2_CLIENT_MAGIC_LEN),
-    affinity_hash_(0),
-    should_close_after_write_(false),
-    affinity_hash_computed_(false) {
+    worker_(worker) {
   ++worker_->get_worker_stat()->num_connections;
 
   ev_timer_init(&reneg_shutdown_timer_, shutdowncb, 0., 0.);

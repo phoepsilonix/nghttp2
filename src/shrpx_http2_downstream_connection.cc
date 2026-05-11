@@ -48,10 +48,7 @@ using namespace nghttp2;
 namespace shrpx {
 
 Http2DownstreamConnection::Http2DownstreamConnection(Http2Session *http2session)
-  : dlnext(nullptr),
-    dlprev(nullptr),
-    http2session_(http2session),
-    sd_(nullptr) {}
+  : http2session_(http2session) {}
 
 Http2DownstreamConnection::~Http2DownstreamConnection() {
   if (log_enabled(INFO)) {

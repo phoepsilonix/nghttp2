@@ -222,7 +222,7 @@ private:
 #ifdef ENABLE_HTTP3
   std::vector<WorkerID> worker_ids_;
   std::vector<WorkerID> lingering_worker_ids_;
-  int quic_ipc_fd_;
+  int quic_ipc_fd_{-1};
   std::vector<QUICLingeringWorkerProcess> quic_lingering_worker_processes_;
 #  ifdef HAVE_LIBBPF
   std::vector<BPFRef> quic_bpf_refs_;
@@ -256,17 +256,17 @@ private:
   std::shared_ptr<TicketKeys> ticket_keys_;
   struct ev_loop *loop_;
 #ifdef HAVE_NEVERBLEED
-  neverbleed_t *nb_;
+  neverbleed_t *nb_{};
 #endif // defined(HAVE_NEVERBLEED)
   ev_async thread_join_asyncev_;
   ev_async serial_event_asyncev_;
 #ifndef NOTHREADS
   std::future<void> thread_join_fut_;
 #endif // defined(NOTHREADS)
-  size_t tls_ticket_key_memcached_get_retry_count_;
-  size_t tls_ticket_key_memcached_fail_count_;
+  size_t tls_ticket_key_memcached_get_retry_count_{};
+  size_t tls_ticket_key_memcached_fail_count_{};
   unsigned int worker_round_robin_cnt_;
-  bool graceful_shutdown_;
+  bool graceful_shutdown_{};
 };
 
 } // namespace shrpx

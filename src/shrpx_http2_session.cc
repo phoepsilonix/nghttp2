@@ -181,9 +181,7 @@ Http2Session::Http2Session(struct ev_loop *loop, SSL_CTX *ssl_ctx,
                            Worker *worker,
                            const std::shared_ptr<DownstreamAddrGroup> &group,
                            DownstreamAddr *addr)
-  : dlnext(nullptr),
-    dlprev(nullptr),
-    conn_(loop, -1, nullptr, worker->get_mcpool(),
+  : conn_(loop, -1, nullptr, worker->get_mcpool(),
           group->shared_addr->timeout.write, group->shared_addr->timeout.read,
           {}, {}, writecb, readcb, timeoutcb, this,
           get_config()->tls.dyn_rec.warmup_threshold,
@@ -192,14 +190,7 @@ Http2Session::Http2Session(struct ev_loop *loop, SSL_CTX *ssl_ctx,
     worker_(worker),
     ssl_ctx_(ssl_ctx),
     group_(group),
-    addr_(addr),
-    session_(nullptr),
-    raddr_(nullptr),
-    state_(Http2SessionState::DISCONNECTED),
-    connection_check_state_(ConnectionCheck::NONE),
-    freelist_zone_(FreelistZone::NONE),
-    settings_recved_(false),
-    allow_connect_proto_(false) {
+    addr_(addr) {
   read_ = write_ = &Http2Session::noop;
 
   on_read_ = &Http2Session::read_noop;

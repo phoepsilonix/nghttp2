@@ -46,7 +46,7 @@ struct DownstreamAddr;
 
 class DownstreamConnection {
 public:
-  DownstreamConnection();
+  DownstreamConnection() noexcept = default;
   virtual ~DownstreamConnection();
   virtual std::expected<void, Error>
   attach_downstream(Downstream *downstream) = 0;
@@ -80,8 +80,8 @@ public:
   Downstream *get_downstream();
 
 protected:
-  ClientHandler *client_handler_;
-  Downstream *downstream_;
+  ClientHandler *client_handler_{};
+  Downstream *downstream_{};
 };
 
 } // namespace shrpx

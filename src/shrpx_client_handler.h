@@ -210,7 +210,14 @@ private:
   // Allocator to allocate memory for connection-wide objects.  Make
   // sure that the allocations must be bounded, and not proportional
   // to the number of requests.
-  BlockAllocator balloc_;
+  //
+  // We use balloc_ for TLS session ID (64), ipaddr (IPv6) (39), port
+  // (5), forwarded-for (IPv6) (41), alpn (5), proxyproto ipaddr (15),
+  // proxyproto port (5), sni (32, estimated).  we need terminal NULL
+  // byte for each.  We also require 8 bytes header for each
+  // allocation.  We align at 16 bytes boundary, so the required space
+  // is 64 + 48 + 16 + 48 + 16 + 16 + 16 + 32 + 8 + 8 * 8 = 328.
+  BlockAllocator balloc_{512, 512};
   DefaultMemchunkBuffer rb_;
   Connection conn_;
   ev_timer reneg_shutdown_timer_;
@@ -238,12 +245,12 @@ private:
   const UpstreamAddr *faddr_;
   Worker *worker_;
   // The number of bytes of HTTP/2 client connection header to read
-  size_t left_connhd_len_;
+  size_t left_connhd_len_{NGHTTP2_CLIENT_MAGIC_LEN};
   // hash for session affinity using client IP
-  uint32_t affinity_hash_;
-  bool should_close_after_write_;
+  uint32_t affinity_hash_{};
+  bool should_close_after_write_{};
   // true if affinity_hash_ is computed
-  bool affinity_hash_computed_;
+  bool affinity_hash_computed_{};
 };
 
 } // namespace shrpx

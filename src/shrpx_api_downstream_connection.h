@@ -108,11 +108,11 @@ public:
 private:
   Worker *worker_;
   // This points to the requested APIEndpoint struct.
-  const APIEndpoint *api_;
+  const APIEndpoint *api_{};
   // The file descriptor for temporary file to store request body.
-  int fd_;
+  int fd_{-1};
   // true if we stop reading request body.
-  bool shutdown_read_;
+  bool shutdown_read_{};
 };
 
 } // namespace shrpx
