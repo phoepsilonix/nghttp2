@@ -73,30 +73,30 @@ struct Config {
   std::string cert_file;
   std::string dh_param_file;
   std::string address;
-  std::string mime_types_file;
-  std::string_view groups;
-  ev_tstamp stream_read_timeout;
-  ev_tstamp stream_write_timeout;
-  void *data_ptr;
-  size_t padding;
-  size_t num_worker;
-  size_t max_concurrent_streams;
-  ssize_t header_table_size;
-  ssize_t encoder_header_table_size;
-  int window_bits;
-  int connection_window_bits;
-  uint16_t port;
-  bool verbose;
-  bool daemon;
-  bool verify_client;
-  bool no_tls;
-  bool error_gzip;
-  bool early_response;
-  bool hexdump;
-  bool echo_upload;
-  bool no_content_length;
-  bool ktls;
-  Config();
+  std::string mime_types_file{"/etc/mime.types"};
+  std::string_view groups{"X25519:P-256:P-384:P-521"};
+  ev_tstamp stream_read_timeout{1_min};
+  ev_tstamp stream_write_timeout{1_min};
+  void *data_ptr{};
+  size_t padding{};
+  size_t num_worker{1};
+  size_t max_concurrent_streams{100};
+  ssize_t header_table_size{-1};
+  ssize_t encoder_header_table_size{-1};
+  int window_bits{-1};
+  int connection_window_bits{-1};
+  uint16_t port{};
+  bool verbose{};
+  bool daemon{};
+  bool verify_client{};
+  bool no_tls{};
+  bool error_gzip{};
+  bool early_response{};
+  bool hexdump{};
+  bool echo_upload{};
+  bool no_content_length{};
+  bool ktls{};
+  Config() noexcept = default;
   ~Config();
 };
 
@@ -112,10 +112,7 @@ struct FileEntry {
       mtime(mtime),
       last_valid(last_valid),
       content_type(content_type),
-      dlnext(nullptr),
-      dlprev(nullptr),
       fd(fd),
-      usecount(1),
       stale(stale) {}
   std::string path;
   std::unordered_multimap<std::string, std::unique_ptr<FileEntry>>::iterator it;
@@ -123,9 +120,9 @@ struct FileEntry {
   int64_t mtime;
   std::chrono::steady_clock::time_point last_valid;
   const std::string *content_type;
-  FileEntry *dlnext, *dlprev;
+  FileEntry *dlnext{}, *dlprev{};
   int fd;
-  int usecount;
+  int usecount{1};
   bool stale;
 };
 
@@ -150,19 +147,19 @@ struct RequestHeader {
 };
 
 struct Stream {
-  BlockAllocator balloc;
-  RequestHeader header;
+  BlockAllocator balloc{1024, 1024};
+  RequestHeader header{};
   Http2Handler *handler;
-  FileEntry *file_ent;
+  FileEntry *file_ent{};
   ev_timer rtimer;
   ev_timer wtimer;
-  int64_t body_length;
-  int64_t body_offset;
+  int64_t body_length{};
+  int64_t body_offset{};
   // Total amount of bytes (sum of name and value length) used in
   // headers.
-  size_t header_buffer_size;
+  size_t header_buffer_size{};
   int32_t stream_id;
-  bool echo_upload;
+  bool echo_upload{};
   Stream(Http2Handler *handler, int32_t stream_id);
   ~Stream();
 };
@@ -236,7 +233,7 @@ private:
   WriteBuf wb_;
   std::function<std::expected<void, Error>(Http2Handler &)> read_, write_;
   int64_t session_id_;
-  nghttp2_session *session_;
+  nghttp2_session *session_{};
   Sessions *sessions_;
   SSL *ssl_;
   std::span<const uint8_t> data_pending_;

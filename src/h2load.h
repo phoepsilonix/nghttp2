@@ -72,6 +72,7 @@
 #include "memchunk.h"
 #include "template.h"
 #include "errors.h"
+#include "tls.h"
 
 using namespace nghttp2;
 
@@ -91,65 +92,66 @@ struct Config {
   std::string host;
   std::string connect_to_host;
   std::string ifile;
-  std::string ciphers;
-  std::string tls13_ciphers;
+  std::string ciphers{tls::DEFAULT_CIPHER_LIST};
+  std::string tls13_ciphers{"TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_"
+                            "CHACHA20_POLY1305_SHA256:TLS_AES_128_CCM_SHA256"};
   // supported groups (or curves).
-  std::string groups;
+  std::string groups{"X25519:P-256:P-384:P-521"};
   // length of upload data
-  int64_t data_length;
+  int64_t data_length{-1};
   // memory mapped upload data
-  uint8_t *data;
-  addrinfo *addrs;
-  size_t nreqs;
-  size_t nclients;
-  size_t nthreads;
+  uint8_t *data{};
+  addrinfo *addrs{};
+  size_t nreqs{1};
+  size_t nclients{1};
+  size_t nthreads{1};
   // The maximum number of concurrent streams per session.
-  size_t max_concurrent_streams;
-  size_t window_bits;
-  size_t connection_window_bits;
-  size_t max_frame_size;
+  size_t max_concurrent_streams{1};
+  size_t window_bits{30};
+  size_t connection_window_bits{30};
+  size_t max_frame_size{16_k};
   // rate at which connections should be made
-  size_t rate;
-  ev_tstamp rate_period;
+  size_t rate{};
+  ev_tstamp rate_period{1.0};
   // amount of time for main measurements in timing-based test
-  ev_tstamp duration;
+  ev_tstamp duration{};
   // amount of time to wait before starting measurements in timing-based test
-  ev_tstamp warm_up_time;
+  ev_tstamp warm_up_time{};
   // amount of time to wait for activity on a given connection
-  ev_tstamp conn_active_timeout;
+  ev_tstamp conn_active_timeout{};
   // amount of time to wait after the last request is made on a connection
-  ev_tstamp conn_inactivity_timeout;
-  enum { PROTO_HTTP2, PROTO_HTTP1_1 } no_tls_proto;
-  uint32_t header_table_size;
-  uint32_t encoder_header_table_size;
+  ev_tstamp conn_inactivity_timeout{};
+  enum { PROTO_HTTP2, PROTO_HTTP1_1 } no_tls_proto = {PROTO_HTTP2};
+  uint32_t header_table_size{4_k};
+  uint32_t encoder_header_table_size{4_k};
   // file descriptor for upload data
-  int data_fd;
+  int data_fd{-1};
   // file descriptor to write per-request stats to.
-  int log_fd;
+  int log_fd{-1};
   // base file name of qlog output files
   std::string qlog_file_base;
-  uint16_t port;
-  uint16_t default_port;
-  uint16_t connect_to_port;
-  bool verbose;
-  bool timing_script;
+  uint16_t port{};
+  uint16_t default_port{};
+  uint16_t connect_to_port{};
+  bool verbose{};
+  bool timing_script{};
   std::string base_uri;
   // true if UNIX domain socket is used.  In this case, base_uri is
   // not used in usual way.
-  bool base_uri_unix;
+  bool base_uri_unix{};
   // used when UNIX domain socket is used (base_uri_unix is true).
-  sockaddr_un unix_addr;
+  sockaddr_un unix_addr{};
   // list of supported ALPN protocol strings in the order of
   // preference.
   std::vector<std::string> alpn_list;
   // The number of request per second for each client.
-  double rps;
+  double rps{};
   // Disables GSO for UDP connections.
-  bool no_udp_gso;
+  bool no_udp_gso{};
   // The maximum UDP datagram payload size to send.
-  size_t max_udp_payload_size;
+  size_t max_udp_payload_size{};
   // Enable ktls.
-  bool ktls;
+  bool ktls{};
   // sni is the value sent in TLS SNI, overriding DNS name of the
   // remote host.
   std::string sni;
@@ -162,7 +164,7 @@ struct Config {
   // Path to file to write the measurement results.
   std::string output_file;
 
-  Config();
+  Config() noexcept = default;
   ~Config();
 
   bool is_rate_mode() const;
@@ -264,36 +266,36 @@ struct Stats {
   // The total number of requests
   size_t req_todo;
   // The number of requests issued so far
-  size_t req_started;
+  size_t req_started{};
   // The number of requests finished
-  size_t req_done;
+  size_t req_done{};
   // The number of requests completed successful, but not necessarily
   // means successful HTTP status code.
-  size_t req_success;
+  size_t req_success{};
   // The number of requests marked as success.  HTTP status code is
   // also considered as success. This is subset of req_done.
-  size_t req_status_success;
+  size_t req_status_success{};
   // The number of requests failed. This is subset of req_done.
-  size_t req_failed;
+  size_t req_failed{};
   // The number of requests failed due to network errors. This is
   // subset of req_failed.
-  size_t req_error;
+  size_t req_error{};
   // The number of requests that failed due to timeout.
-  size_t req_timedout;
+  size_t req_timedout{};
   // The number of bytes received on the "wire". If SSL/TLS is used,
   // this is the number of decrypted bytes the application received.
-  int64_t bytes_total;
+  int64_t bytes_total{};
   // The number of bytes received for header fields.  This is
   // compressed version.
-  int64_t bytes_head;
+  int64_t bytes_head{};
   // The number of bytes received for header fields after they are
   // decompressed.
-  int64_t bytes_head_decomp;
+  int64_t bytes_head_decomp{};
   // The number of bytes received in DATA frame.
-  int64_t bytes_body;
+  int64_t bytes_body{};
   // The number of each HTTP status category, status[i] is status code
   // in the range [i*100, (i+1)*100).
-  std::array<size_t, 6> status;
+  std::array<size_t, 6> status{};
   // The statistics per request
   std::vector<RequestStat> req_stats;
   // The statistics per client
@@ -301,9 +303,9 @@ struct Stats {
   // The statistics about GRO, sampled across all clients.
   std::vector<GROStat> gro_stats;
   // The number of UDP datagrams received.
-  size_t udp_dgram_recv;
+  size_t udp_dgram_recv{};
   // The number of UDP datagrams sent.
-  size_t udp_dgram_sent;
+  size_t udp_dgram_sent{};
 };
 
 enum ClientState { CLIENT_IDLE, CLIENT_CONNECTED };
@@ -383,21 +385,21 @@ struct Worker {
 };
 
 struct Stream {
-  RequestStat req_stat;
-  int status_success;
-  Stream();
+  RequestStat req_stat{};
+  int status_success{-1};
+  Stream() noexcept = default;
 };
 
 struct Client {
   DefaultMemchunks wb;
   std::unordered_map<int64_t, Stream> streams;
-  ClientStat cstat;
+  ClientStat cstat{};
   std::unique_ptr<Session> session;
   ev_io wev;
   ev_io rev;
   std::function<std::expected<void, Error>(Client &)> readfn, writefn;
   Worker *worker;
-  SSL *ssl;
+  SSL *ssl{};
 #ifdef ENABLE_HTTP3
   struct {
     ngtcp2_crypto_conn_ref conn_ref;
@@ -420,7 +422,7 @@ struct Client {
       std::unique_ptr<uint8_t[]> data;
       bool no_gso;
     } tx;
-  } quic;
+  } quic{};
 #endif // defined(ENABLE_HTTP3)
   ev_timer request_timeout_watcher;
   addrinfo *next_addr;
@@ -428,31 +430,31 @@ struct Client {
   // used and current_addr is not nullptr, it is used instead of
   // trying next address though next_addr.  To try new address, set
   // nullptr to current_addr before calling connect().
-  addrinfo *current_addr;
-  size_t reqidx;
-  ClientState state;
+  addrinfo *current_addr{};
+  size_t reqidx{};
+  ClientState state{CLIENT_IDLE};
   // The number of requests this client has to issue.
   size_t req_todo;
   // The number of requests left to issue
   size_t req_left;
   // The number of requests currently have started, but not abandoned
   // or finished.
-  size_t req_inflight;
+  size_t req_inflight{};
   // The number of requests this client has issued so far.
-  size_t req_started;
+  size_t req_started{};
   // The number of requests this client has done so far.
-  size_t req_done;
+  size_t req_done{};
   // The client id per worker
   uint32_t id;
-  int fd;
-  Address local_addr;
+  int fd{-1};
+  Address local_addr{};
   ev_timer conn_active_watcher;
   ev_timer conn_inactivity_watcher;
   std::string selected_proto;
-  bool new_connection_requested;
+  bool new_connection_requested{};
   // true if the current connection will be closed, and no more new
   // request cannot be processed.
-  bool final;
+  bool final{};
   // rps_watcher is a timer to invoke callback periodically to
   // generate a new request.
   ev_timer rps_watcher;
@@ -461,12 +463,12 @@ struct Client {
   std::chrono::steady_clock::time_point rps_duration_started;
   // The number of requests allowed by rps, but limited by stream
   // concurrency.
-  size_t rps_req_pending;
+  size_t rps_req_pending{};
   // The number of in-flight streams.  req_inflight has similar value
   // but it only measures requests made during Phase::MAIN_DURATION.
   // rps_req_inflight measures the number of requests in all phases,
   // and it is only used if --rps is given.
-  size_t rps_req_inflight;
+  size_t rps_req_inflight{};
 
   Client(uint32_t id, Worker *worker, size_t req_todo);
   ~Client();

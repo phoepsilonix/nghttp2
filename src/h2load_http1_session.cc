@@ -155,12 +155,7 @@ constexpr llhttp_settings_t htp_hooks = {
   .on_message_complete = htp_msg_completecb,
 };
 
-Http1Session::Http1Session(Client *client)
-  : stream_req_counter_(1),
-    stream_resp_counter_(1),
-    client_(client),
-    htp_(),
-    complete_(false) {
+Http1Session::Http1Session(Client *client) : client_(client) {
   llhttp_init(&htp_, HTTP_RESPONSE, &htp_hooks);
   htp_.data = this;
 }

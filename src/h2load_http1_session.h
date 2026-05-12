@@ -46,13 +46,13 @@ public:
   void terminate() override;
   size_t max_concurrent_streams() override;
   Client *get_client();
-  int32_t stream_req_counter_;
-  int32_t stream_resp_counter_;
+  int32_t stream_req_counter_{1};
+  int32_t stream_resp_counter_{1};
 
 private:
   Client *client_;
-  llhttp_t htp_;
-  bool complete_;
+  llhttp_t htp_{};
+  bool complete_{};
 };
 
 } // namespace h2load

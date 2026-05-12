@@ -53,7 +53,7 @@ struct ParserData {
   std::string base_uri;
   std::vector<std::pair<std::string, ResourceType>> links;
   // > 0 if we are inside "head" element.
-  int inside_head;
+  int inside_head{};
   ParserData(const std::string &base_uri);
 };
 
@@ -73,7 +73,7 @@ private:
   parse_chunk_internal(std::span<const uint8_t> chunk, int fin);
 
   std::string base_uri_;
-  htmlParserCtxtPtr parser_ctx_;
+  htmlParserCtxtPtr parser_ctx_{};
   ParserData parser_data_;
 };
 

@@ -73,31 +73,7 @@
 
 namespace nghttp2 {
 
-Config::Config()
-  : header_table_size(-1),
-    min_header_table_size(std::numeric_limits<uint32_t>::max()),
-    encoder_header_table_size(-1),
-    padding(0),
-    max_concurrent_streams(100),
-    peer_max_concurrent_streams(100),
-    multiply(1),
-    timeout(0.),
-    window_bits(-1),
-    connection_window_bits(-1),
-    verbose(0),
-    port_override(0),
-    null_out(false),
-    remote_name(false),
-    get_assets(false),
-    stat(false),
-    upgrade(false),
-    continuation(false),
-    no_content_length(false),
-    hexdump(false),
-    no_push(false),
-    expect_continue(false),
-    verify_peer(true),
-    ktls(false) {
+Config::Config() {
   nghttp2_option_new(&http2_option);
   nghttp2_option_set_peer_max_concurrent_streams(
     http2_option, static_cast<uint32_t>(peer_max_concurrent_streams));
@@ -134,15 +110,8 @@ Request::Request(const std::string &uri, const urlparse_url &u,
     u(u),
     extpri(extpri),
     data_length(data_length),
-    data_offset(0),
-    response_len(0),
-    inflater(nullptr),
     data_prd(data_prd),
-    header_buffer_size(0),
-    stream_id(-1),
-    status(0),
-    level(level),
-    expect_final_response(false) {
+    level(level) {
   http2::init_hdidx(res_hdidx);
   http2::init_hdidx(req_hdidx);
 }
@@ -539,22 +508,7 @@ void settings_timeout_cb(struct ev_loop *loop, ev_timer *w, int revents) {
 
 HttpClient::HttpClient(const nghttp2_session_callbacks *callbacks,
                        struct ev_loop *loop, SSL_CTX *ssl_ctx)
-  : wb(&mcpool),
-    session(nullptr),
-    callbacks(callbacks),
-    loop(loop),
-    ssl_ctx(ssl_ctx),
-    ssl(nullptr),
-    addrs(nullptr),
-    next_addr(nullptr),
-    cur_addr(nullptr),
-    complete(0),
-    success(0),
-    settings_payloadlen(0),
-    state(ClientState::IDLE),
-    upgrade_response_status_code(0),
-    fd(-1),
-    upgrade_response_complete(false) {
+  : wb(&mcpool), callbacks(callbacks), loop(loop), ssl_ctx(ssl_ctx) {
   ev_io_init(&wev, writecb, 0, EV_WRITE);
   ev_io_init(&rev, readcb, 0, EV_READ);
 

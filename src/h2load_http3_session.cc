@@ -41,8 +41,7 @@
 
 namespace h2load {
 
-Http3Session::Http3Session(Client *client)
-  : client_(client), conn_(nullptr), npending_request_(0), reqidx_(0) {}
+Http3Session::Http3Session(Client *client) : client_(client) {}
 
 Http3Session::~Http3Session() { nghttp3_conn_del(conn_); }
 

@@ -97,31 +97,6 @@ namespace {
 void print_session_id(int64_t id) { std::print("[id={}] ", id); }
 } // namespace
 
-Config::Config()
-  : mime_types_file("/etc/mime.types"),
-    groups("X25519:P-256:P-384:P-521"sv),
-    stream_read_timeout(1_min),
-    stream_write_timeout(1_min),
-    data_ptr(nullptr),
-    padding(0),
-    num_worker(1),
-    max_concurrent_streams(100),
-    header_table_size(-1),
-    encoder_header_table_size(-1),
-    window_bits(-1),
-    connection_window_bits(-1),
-    port(0),
-    verbose(false),
-    daemon(false),
-    verify_client(false),
-    no_tls(false),
-    error_gzip(false),
-    early_response(false),
-    hexdump(false),
-    echo_upload(false),
-    no_content_length(false),
-    ktls(false) {}
-
 Config::~Config() {}
 
 namespace {
@@ -237,9 +212,6 @@ public:
       loop_(loop),
       config_(config),
       ssl_ctx_(ssl_ctx),
-      callbacks_(nullptr),
-      option_(nullptr),
-      next_session_id_(1),
       tstamp_cached_(ev_now(loop)),
       cached_date_(
         util::format_http_date(std::chrono::system_clock::from_time_t(
@@ -421,10 +393,10 @@ private:
   struct ev_loop *loop_;
   const Config *config_;
   SSL_CTX *ssl_ctx_;
-  nghttp2_session_callbacks *callbacks_;
-  nghttp2_option *option_;
+  nghttp2_session_callbacks *callbacks_{};
+  nghttp2_option *option_{};
   ev_timer release_fd_timer_;
-  int64_t next_session_id_;
+  int64_t next_session_id_{1};
   ev_tstamp tstamp_cached_;
   std::string cached_date_;
 };
@@ -444,15 +416,7 @@ void release_fd_cb(struct ev_loop *loop, ev_timer *w, int revents) {
 } // namespace
 
 Stream::Stream(Http2Handler *handler, int32_t stream_id)
-  : balloc(1024, 1024),
-    header{},
-    handler(handler),
-    file_ent(nullptr),
-    body_length(0),
-    body_offset(0),
-    header_buffer_size(0),
-    stream_id(stream_id),
-    echo_upload(false) {
+  : handler(handler), stream_id(stream_id) {
   auto config = handler->get_config();
   ev_timer_init(&rtimer, stream_timeout_cb, 0., config->stream_read_timeout);
   ev_timer_init(&wtimer, stream_timeout_cb, 0., config->stream_write_timeout);
@@ -522,11 +486,7 @@ void writecb(struct ev_loop *loop, ev_io *w, int revents) {
 
 Http2Handler::Http2Handler(Sessions *sessions, int fd, SSL *ssl,
                            int64_t session_id)
-  : session_id_(session_id),
-    session_(nullptr),
-    sessions_(sessions),
-    ssl_(ssl),
-    fd_(fd) {
+  : session_id_(session_id), sessions_(sessions), ssl_(ssl), fd_(fd) {
   ev_timer_init(&settings_timerev_, settings_timeout_cb, 10., 0.);
   ev_io_init(&wev_, writecb, fd, EV_WRITE);
   ev_io_init(&rev_, readcb, fd, EV_READ);

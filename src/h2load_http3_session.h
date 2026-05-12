@@ -88,9 +88,9 @@ public:
 
 private:
   Client *client_;
-  nghttp3_conn *conn_;
-  size_t npending_request_;
-  size_t reqidx_;
+  nghttp3_conn *conn_{};
+  size_t npending_request_{};
+  size_t reqidx_{};
 };
 
 } // namespace h2load

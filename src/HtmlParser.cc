@@ -30,11 +30,10 @@
 
 namespace nghttp2 {
 
-ParserData::ParserData(const std::string &base_uri)
-  : base_uri(base_uri), inside_head(0) {}
+ParserData::ParserData(const std::string &base_uri) : base_uri(base_uri) {}
 
 HtmlParser::HtmlParser(const std::string &base_uri)
-  : base_uri_(base_uri), parser_ctx_(nullptr), parser_data_(base_uri) {}
+  : base_uri_(base_uri), parser_data_(base_uri) {}
 
 HtmlParser::~HtmlParser() { htmlFreeParserCtxt(parser_ctx_); }
 
