@@ -103,45 +103,6 @@ bool recorded(std::chrono::steady_clock::time_point t) {
 }
 } // namespace
 
-Config::Config()
-  : ciphers(tls::DEFAULT_CIPHER_LIST),
-    tls13_ciphers("TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_"
-                  "CHACHA20_POLY1305_SHA256:TLS_AES_128_CCM_SHA256"),
-    groups("X25519:P-256:P-384:P-521"),
-    data_length(-1),
-    data(nullptr),
-    addrs(nullptr),
-    nreqs(1),
-    nclients(1),
-    nthreads(1),
-    max_concurrent_streams(1),
-    window_bits(30),
-    connection_window_bits(30),
-    max_frame_size(16_k),
-    rate(0),
-    rate_period(1.0),
-    duration(0.0),
-    warm_up_time(0.0),
-    conn_active_timeout(0.),
-    conn_inactivity_timeout(0.),
-    no_tls_proto(PROTO_HTTP2),
-    header_table_size(4_k),
-    encoder_header_table_size(4_k),
-    data_fd(-1),
-    log_fd(-1),
-    qlog_file_base(),
-    port(0),
-    default_port(0),
-    connect_to_port(0),
-    verbose(false),
-    timing_script(false),
-    base_uri_unix(false),
-    unix_addr{},
-    rps(0.),
-    no_udp_gso(false),
-    max_udp_payload_size(0),
-    ktls(false) {}
-
 Config::~Config() {
   if (tls_session) {
     SSL_SESSION_free(tls_session);
@@ -176,24 +137,7 @@ Config config;
 
 constexpr size_t MAX_SAMPLES = 1000000;
 
-Stats::Stats(size_t req_todo, size_t nclients)
-  : req_todo(req_todo),
-    req_started(0),
-    req_done(0),
-    req_success(0),
-    req_status_success(0),
-    req_failed(0),
-    req_error(0),
-    req_timedout(0),
-    bytes_total(0),
-    bytes_head(0),
-    bytes_head_decomp(0),
-    bytes_body(0),
-    status(),
-    udp_dgram_recv(0),
-    udp_dgram_sent(0) {}
-
-Stream::Stream() : req_stat{}, status_success(-1) {}
+Stats::Stats(size_t req_todo, size_t nclients) : req_todo(req_todo) {}
 
 namespace {
 std::random_device rd;
@@ -459,28 +403,11 @@ void client_request_timeout_cb(struct ev_loop *loop, ev_timer *w, int revents) {
 
 Client::Client(uint32_t id, Worker *worker, size_t req_todo)
   : wb(&worker->mcpool),
-    cstat{},
     worker(worker),
-    ssl(nullptr),
-#ifdef ENABLE_HTTP3
-    quic{},
-#endif // defined(ENABLE_HTTP3)
     next_addr(config.addrs),
-    current_addr(nullptr),
-    reqidx(0),
-    state(CLIENT_IDLE),
     req_todo(req_todo),
     req_left(req_todo),
-    req_inflight(0),
-    req_started(0),
-    req_done(0),
-    id(id),
-    fd(-1),
-    local_addr{},
-    new_connection_requested(false),
-    final(false),
-    rps_req_pending(0),
-    rps_req_inflight(0) {
+    id(id) {
   if (req_todo == 0) { // this means infinite number of requests are to be made
     // This ensures that number of requests are unbounded
     // Just a positive number is fine, we chose the first positive number

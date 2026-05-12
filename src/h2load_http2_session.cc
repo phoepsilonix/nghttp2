@@ -36,8 +36,7 @@ using namespace nghttp2;
 
 namespace h2load {
 
-Http2Session::Http2Session(Client *client)
-  : client_(client), session_(nullptr) {}
+Http2Session::Http2Session(Client *client) : client_(client) {}
 
 Http2Session::~Http2Session() { nghttp2_session_del(session_); }
 
