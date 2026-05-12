@@ -53,8 +53,7 @@ void stateless_reset_bucket_regen_timercb(struct ev_loop *loop, ev_timer *w,
 }
 } // namespace
 
-QUICConnectionHandler::QUICConnectionHandler(Worker *worker)
-  : worker_{worker}, stateless_reset_bucket_{SHRPX_QUIC_STATELESS_RESET_BURST} {
+QUICConnectionHandler::QUICConnectionHandler(Worker *worker) : worker_{worker} {
   ev_timer_init(&stateless_reset_bucket_regen_timer_,
                 stateless_reset_bucket_regen_timercb, 0., 1.);
   stateless_reset_bucket_regen_timer_.data = this;

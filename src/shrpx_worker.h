@@ -208,19 +208,13 @@ struct WeightGroupEntryGreater {
 };
 
 struct SharedDownstreamAddr {
-  SharedDownstreamAddr()
-    : balloc(1024, 1024),
-      affinity{SessionAffinity::NONE},
-      redirect_if_not_tls{false},
-      dnf{false},
-      timeout{} {}
-
+  SharedDownstreamAddr() noexcept = default;
   SharedDownstreamAddr(const SharedDownstreamAddr &) = delete;
   SharedDownstreamAddr(SharedDownstreamAddr &&) = delete;
   SharedDownstreamAddr &operator=(const SharedDownstreamAddr &) = delete;
   SharedDownstreamAddr &operator=(SharedDownstreamAddr &&) = delete;
 
-  BlockAllocator balloc;
+  BlockAllocator balloc{1024, 1024};
   std::vector<DownstreamAddr> addrs;
   std::vector<WeightGroup> wgs;
   std::priority_queue<WeightGroupEntry, std::vector<WeightGroupEntry>,
@@ -236,22 +230,22 @@ struct SharedDownstreamAddr {
   std::shared_ptr<mruby::MRubyContext> mruby_ctx;
 #endif // defined(HAVE_MRUBY)
   // Configuration for session affinity
-  AffinityConfig affinity;
+  AffinityConfig affinity{SessionAffinity::NONE};
   // Session affinity
   // true if this group requires that client connection must be TLS,
   // and the request must be redirected to https URI.
-  bool redirect_if_not_tls;
+  bool redirect_if_not_tls{};
   // true if a request should not be forwarded to a backend.
-  bool dnf;
+  bool dnf{};
   // Timeouts for backend connection.
   struct {
     ev_tstamp read;
     ev_tstamp write;
-  } timeout;
+  } timeout{};
 };
 
 struct DownstreamAddrGroup {
-  DownstreamAddrGroup();
+  DownstreamAddrGroup() noexcept = default;
   ~DownstreamAddrGroup();
 
   DownstreamAddrGroup(const DownstreamAddrGroup &) = delete;
@@ -264,7 +258,7 @@ struct DownstreamAddrGroup {
   // true if this group is no longer used for new request.  If this is
   // true, the connection made using one of address in shared_addr
   // must not be pooled.
-  bool retired;
+  bool retired{};
 };
 
 struct WorkerStat {
@@ -274,6 +268,7 @@ struct WorkerStat {
 
 #ifdef ENABLE_HTTP3
 struct QUICPacket {
+  QUICPacket() noexcept = default;
   QUICPacket(size_t upstream_addr_index, const Address &remote_addr,
              const Address &local_addr, const ngtcp2_pkt_info &pi,
              std::span<const uint8_t> data)
@@ -282,11 +277,10 @@ struct QUICPacket {
       local_addr{local_addr},
       pi{pi},
       data{std::ranges::begin(data), std::ranges::end(data)} {}
-  QUICPacket() : upstream_addr_index{}, remote_addr{}, local_addr{}, pi{} {}
-  size_t upstream_addr_index;
-  Address remote_addr;
-  Address local_addr;
-  ngtcp2_pkt_info pi;
+  size_t upstream_addr_index{};
+  Address remote_addr{};
+  Address local_addr{};
+  ngtcp2_pkt_info pi{};
   std::vector<uint8_t> data;
 };
 #endif // defined(ENABLE_HTTP3)
@@ -469,7 +463,7 @@ private:
   // this is used when file descriptor is exhausted.
   std::unique_ptr<ConnectBlocker> connect_blocker_;
 
-  bool graceful_shutdown_;
+  bool graceful_shutdown_{};
 };
 
 // Selects group based on request's |hostport| and |path|.  |hostport|

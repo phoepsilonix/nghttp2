@@ -65,11 +65,7 @@ struct DownstreamAddr;
 class FieldStore {
 public:
   FieldStore(BlockAllocator &balloc, size_t headers_initial_capacity)
-    : content_length(-1),
-      balloc_(balloc),
-      buffer_size_(0),
-      header_key_prev_(false),
-      trailer_key_prev_(false) {
+    : balloc_(balloc) {
     headers_.reserve(headers_initial_capacity);
   }
 
@@ -130,7 +126,7 @@ public:
   void erase_content_length_and_transfer_encoding();
 
   // content-length, -1 if it is unknown.
-  int64_t content_length;
+  int64_t content_length{-1};
 
 private:
   BlockAllocator &balloc_;
@@ -141,9 +137,9 @@ private:
   // Sum of the length of name and value in headers_ and trailers_.
   // This could also be increased by add_extra_buffer_size() to take
   // into account for request URI in case of HTTP/1.x request.
-  size_t buffer_size_;
-  bool header_key_prev_;
-  bool trailer_key_prev_;
+  size_t buffer_size_{};
+  bool header_key_prev_{};
+  bool trailer_key_prev_{};
 };
 
 // Protocols allowed in HTTP/2 :protocol header field.
@@ -153,20 +149,7 @@ enum class ConnectProto {
 };
 
 struct Request {
-  Request(BlockAllocator &balloc)
-    : fs(balloc, 16),
-      recv_body_length(0),
-      unconsumed_body_length(0),
-      method(-1),
-      http_major(1),
-      http_minor(1),
-      connect_proto(ConnectProto::NONE),
-      upgrade_request(false),
-      http2_upgrade_seen(false),
-      connection_close(false),
-      http2_expect_body(false),
-      no_authority(false),
-      forwarded_once(false) {}
+  Request(BlockAllocator &balloc) : fs(balloc, 16) {}
 
   void consume(size_t len) {
     assert(unconsumed_body_length >= len);
@@ -204,46 +187,38 @@ struct Request {
   // mruby script.
   std::string_view orig_path;
   // the length of request body received so far
-  int64_t recv_body_length;
+  int64_t recv_body_length{};
   // The number of bytes not consumed by the application yet.
-  size_t unconsumed_body_length;
-  int method;
+  size_t unconsumed_body_length{};
+  int method{-1};
   // HTTP major and minor version
-  int http_major, http_minor;
+  int http_major{1}, http_minor{1};
   // connect_proto specified in HTTP/2 :protocol pseudo header field
   // which enables extended CONNECT method.  This field is also set if
   // WebSocket upgrade is requested in h1 frontend for convenience.
-  ConnectProto connect_proto;
+  ConnectProto connect_proto{ConnectProto::NONE};
   // Returns true if the request is HTTP upgrade (HTTP Upgrade or
   // CONNECT method).  Upgrade to HTTP/2 is excluded.  For HTTP/2
   // Upgrade, check get_http2_upgrade_request().
-  bool upgrade_request;
+  bool upgrade_request{};
   // true if h2c is seen in Upgrade header field.
-  bool http2_upgrade_seen;
-  bool connection_close;
+  bool http2_upgrade_seen{};
+  bool connection_close{};
   // true if this is HTTP/2, and request body is expected.  Note that
   // we don't take into account HTTP method here.
-  bool http2_expect_body;
+  bool http2_expect_body{};
   // true if request does not have any information about authority.
   // This happens when: For HTTP/2 request, :authority is missing.
   // For HTTP/1 request, origin or asterisk form is used.
-  bool no_authority;
+  bool no_authority{};
   // true if backend selection is done for request once.
   // orig_authority and orig_path have the authority and path which
   // are used for the first backend selection.
-  bool forwarded_once;
+  bool forwarded_once{};
 };
 
 struct Response {
-  Response(BlockAllocator &balloc)
-    : fs(balloc, 32),
-      recv_body_length(0),
-      unconsumed_body_length(0),
-      http_status(0),
-      http_major(1),
-      http_minor(1),
-      connection_close(false),
-      headers_only(false) {}
+  Response(BlockAllocator &balloc) : fs(balloc, 32) {}
 
   void consume(size_t len) {
     assert(unconsumed_body_length >= len);
@@ -286,18 +261,18 @@ struct Response {
     std::tuple<std::string_view, std::string_view, std::string_view>>>
     pushed_resources;
   // the length of response body received so far
-  int64_t recv_body_length;
+  int64_t recv_body_length{};
   // The number of bytes not consumed by the application yet.  This is
   // mainly for HTTP/2 backend.
-  size_t unconsumed_body_length;
+  size_t unconsumed_body_length{};
   // HTTP status code
-  unsigned int http_status;
-  int http_major, http_minor;
-  bool connection_close;
+  unsigned int http_status{};
+  int http_major{1}, http_minor{1};
+  bool connection_close{};
   // true if response only consists of HEADERS, and it bears
   // END_STREAM.  This is used to tell Http2Upstream that it can send
   // response with single HEADERS with END_STREAM flag only.
-  bool headers_only;
+  bool headers_only{};
 };
 
 enum class DownstreamState {

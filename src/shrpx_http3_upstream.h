@@ -202,14 +202,14 @@ private:
   ev_timer timer_;
   ev_timer shutdown_timer_;
   ev_prepare prep_;
-  int qlog_fd_;
-  ngtcp2_cid hashed_scid_;
-  ngtcp2_conn *conn_;
+  int qlog_fd_{-1};
+  ngtcp2_cid hashed_scid_{};
+  ngtcp2_conn *conn_{};
   ngtcp2_ccerr last_error_;
 #if OPENSSL_3_5_0_API
-  ngtcp2_crypto_ossl_ctx *ossl_ctx_;
+  ngtcp2_crypto_ossl_ctx *ossl_ctx_{};
 #endif // OPENSSL_3_5_0_API
-  nghttp3_conn *httpconn_;
+  nghttp3_conn *httpconn_{};
   DownstreamQueue downstream_queue_;
   std::unique_ptr<uint8_t[]> conn_close_;
   size_t conn_closelen_{};
@@ -225,8 +225,12 @@ private:
       std::span<const uint8_t> data;
       size_t gso_size;
     } blocked;
-    bool no_gso;
-  } tx_;
+    bool no_gso{
+#ifndef UDP_SEGMENT
+      true
+#endif // !defined(UDP_SEGMENT)
+    };
+  } tx_{};
   std::array<uint8_t, 64_k> txbuf_;
 };
 

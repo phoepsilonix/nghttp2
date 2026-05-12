@@ -113,20 +113,8 @@ ngtcp2_conn *get_conn(ngtcp2_crypto_conn_ref *conn_ref) {
 
 Http3Upstream::Http3Upstream(ClientHandler *handler)
   : handler_{handler},
-    qlog_fd_{-1},
-    hashed_scid_{},
-    conn_{nullptr},
-#if OPENSSL_3_5_0_API
-    ossl_ctx_{nullptr},
-#endif // OPENSSL_3_5_0_API,
-    httpconn_{nullptr},
     downstream_queue_{downstream_queue_size(handler->get_worker()),
-                      !get_config()->http2_proxy},
-    tx_{
-#ifndef UDP_SEGMENT
-      .no_gso = true,
-#endif // !defined(UDP_SEGMENT)
-    } {
+                      !get_config()->http2_proxy} {
   auto conn = handler_->get_connection();
   conn->conn_ref.get_conn = shrpx::get_conn;
 

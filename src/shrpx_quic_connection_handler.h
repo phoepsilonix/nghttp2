@@ -134,7 +134,7 @@ private:
   std::unordered_map<ngtcp2_cid, ClientHandler *> connections_;
   std::unordered_map<ngtcp2_cid, CloseWait *> close_waits_;
   ev_timer stateless_reset_bucket_regen_timer_;
-  size_t stateless_reset_bucket_;
+  size_t stateless_reset_bucket_{SHRPX_QUIC_STATELESS_RESET_BURST};
 };
 
 } // namespace shrpx

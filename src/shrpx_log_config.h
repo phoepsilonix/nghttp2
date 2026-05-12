@@ -53,10 +53,10 @@ struct LogConfig {
   std::shared_ptr<Timestamp> tstamp;
   std::string thread_id;
   pid_t pid;
-  int accesslog_fd;
-  int errorlog_fd;
+  int accesslog_fd{-1};
+  int errorlog_fd{-1};
   // true if errorlog_fd is referring to a terminal.
-  bool errorlog_tty;
+  bool errorlog_tty{};
 
   LogConfig();
   // Updates time stamp if difference between time_str_updated and now

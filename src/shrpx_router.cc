@@ -32,12 +32,8 @@
 
 namespace shrpx {
 
-RNode::RNode() : index(-1), wildcard_index(-1) {}
-
 RNode::RNode(std::string_view s, ssize_t index, ssize_t wildcard_index)
   : s(s), index(index), wildcard_index(wildcard_index) {}
-
-Router::Router() : balloc_(1024, 1024), root_{} {}
 
 Router::~Router() {}
 

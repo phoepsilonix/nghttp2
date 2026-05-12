@@ -50,8 +50,6 @@ using namespace nghttp2;
 
 namespace shrpx {
 
-constexpr size_t MAX_BUFFER_SIZE = 32_k;
-
 namespace {
 int on_stream_close_callback(nghttp2_session *session, int32_t stream_id,
                              uint32_t error_code, void *user_data) {
@@ -978,10 +976,7 @@ Http2Upstream::Http2Upstream(ClientHandler *handler)
   : wb_(handler->get_worker()->get_mcpool()),
     downstream_queue_(downstream_queue_size(handler->get_worker()),
                       !get_config()->http2_proxy),
-    handler_(handler),
-    session_(nullptr),
-    max_buffer_size_(MAX_BUFFER_SIZE),
-    num_requests_(0) {
+    handler_(handler) {
   int rv;
 
   auto config = get_config();
@@ -996,8 +991,6 @@ Http2Upstream::Http2Upstream(ClientHandler *handler)
                                   : http2conf.upstream.option);
 
   assert(rv == 0);
-
-  flow_control_ = true;
 
   // TODO Maybe call from outside?
   std::array<nghttp2_settings_entry, 5> entry;
@@ -1149,7 +1142,8 @@ std::expected<void, Error> Http2Upstream::on_write() {
       const auto &hint = *maybe_hint;
 
       if (http2conf.upstream.optimize_write_buffer_size) {
-        max_buffer_size_ = std::min(MAX_BUFFER_SIZE, hint.write_buffer_size);
+        max_buffer_size_ =
+          std::min(SHRPX_HTTP2_MAX_BUFFER_SIZE, hint.write_buffer_size);
       }
 
       if (http2conf.upstream.optimize_window_size) {

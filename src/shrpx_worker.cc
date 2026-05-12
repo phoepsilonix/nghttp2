@@ -116,8 +116,6 @@ void disable_listener_cb(struct ev_loop *loop, ev_timer *w, int revent) {
 }
 } // namespace
 
-DownstreamAddrGroup::DownstreamAddrGroup() : retired{false} {}
-
 DownstreamAddrGroup::~DownstreamAddrGroup() {}
 
 // DownstreamKey is used to index SharedDownstreamAddr in order to
@@ -205,8 +203,7 @@ Worker::Worker(struct ev_loop *loop, SSL_CTX *sv_ssl_ctx, SSL_CTX *cl_ssl_ctx,
 #endif // defined(ENABLE_HTTP3)
     ticket_keys_(ticket_keys),
     connect_blocker_(
-      std::make_unique<ConnectBlocker>(randgen_, loop_, nullptr, nullptr)),
-    graceful_shutdown_(false) {
+      std::make_unique<ConnectBlocker>(randgen_, loop_, nullptr, nullptr)) {
   ev_async_init(&w_, eventcb);
   w_.data = this;
   ev_async_start(loop_, &w_);

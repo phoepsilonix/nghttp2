@@ -138,18 +138,19 @@ private:
   std::deque<std::unique_ptr<MemcachedRequest>> recvq_;
   std::deque<std::unique_ptr<MemcachedRequest>> sendq_;
   std::deque<MemcachedSendbuf> sendbufv_;
-  std::function<std::expected<void, Error>(MemcachedConnection &)> do_read_,
-    do_write_;
+  std::function<std::expected<void, Error>(MemcachedConnection &)> do_read_{
+    &MemcachedConnection::noop},
+    do_write_{&MemcachedConnection::noop};
   std::string_view sni_name_;
   tls::TLSSessionCache tls_session_cache_;
   ConnectBlocker connect_blocker_;
-  MemcachedParseContext parse_state_;
+  MemcachedParseContext parse_state_{};
   const Address *addr_;
   SSL_CTX *ssl_ctx_;
   // Sum of the bytes to be transmitted in sendbufv_.
-  size_t sendsum_;
-  size_t try_count_;
-  bool connected_;
+  size_t sendsum_{};
+  size_t try_count_{};
+  bool connected_{};
   Buffer<8_k> recvbuf_;
 };
 

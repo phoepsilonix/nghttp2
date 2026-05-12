@@ -45,6 +45,8 @@ namespace shrpx {
 class ClientHandler;
 class HttpsUpstream;
 
+inline constexpr size_t SHRPX_HTTP2_MAX_BUFFER_SIZE = 32_k;
+
 class Http2Upstream : public Upstream {
 public:
   Http2Upstream(ClientHandler *handler);
@@ -153,11 +155,11 @@ private:
   ev_timer shutdown_timer_;
   ev_prepare prep_;
   ClientHandler *handler_;
-  nghttp2_session *session_;
-  size_t max_buffer_size_;
+  nghttp2_session *session_{};
+  size_t max_buffer_size_{SHRPX_HTTP2_MAX_BUFFER_SIZE};
   // The number of requests seen so far.
-  size_t num_requests_;
-  bool flow_control_;
+  size_t num_requests_{};
+  bool flow_control_{true};
 };
 
 nghttp2_session_callbacks *create_http2_upstream_callbacks();
