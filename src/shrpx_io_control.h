@@ -50,7 +50,7 @@ public:
 
 private:
   RateLimit *lim_;
-  uint32_t rdbits_;
+  uint32_t rdbits_{};
 };
 
 } // namespace shrpx

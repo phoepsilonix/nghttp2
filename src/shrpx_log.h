@@ -250,10 +250,10 @@ private:
   uint8_t *end_;
   uint8_t *last_;
   std::string_view filename_;
-  uint32_t flags_;
+  uint32_t flags_{};
   int severity_;
   uint32_t linenum_;
-  bool full_;
+  bool full_{};
   static int severity_thres_;
 };
 

@@ -103,17 +103,11 @@ MemcachedConnection::MemcachedConnection(const Address *addr,
                                          std::mt19937 &gen)
   : conn_(loop, -1, nullptr, mcpool, write_timeout, read_timeout, {}, {},
           connectcb, readcb, timeoutcb, this, 0, 0., Proto::MEMCACHED),
-    do_read_(&MemcachedConnection::noop),
-    do_write_(&MemcachedConnection::noop),
     sni_name_(sni_name),
     connect_blocker_(
       gen, loop, [] {}, [] {}),
-    parse_state_{},
     addr_(addr),
-    ssl_ctx_(ssl_ctx),
-    sendsum_(0),
-    try_count_(0),
-    connected_(false) {}
+    ssl_ctx_(ssl_ctx) {}
 
 MemcachedConnection::~MemcachedConnection() { conn_.disconnect(); }
 

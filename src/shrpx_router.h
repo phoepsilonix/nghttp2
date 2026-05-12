@@ -39,7 +39,7 @@ using namespace nghttp2;
 namespace shrpx {
 
 struct RNode {
-  RNode();
+  RNode() noexcept = default;
   RNode(std::string_view s, ssize_t index, ssize_t wildcard_index);
   RNode(RNode &&) noexcept = default;
   RNode(const RNode &) = delete;
@@ -53,16 +53,16 @@ struct RNode {
   std::string_view s;
   // Index of pattern if match ends in this node.  Note that we don't
   // store duplicated pattern.
-  ssize_t index;
+  ssize_t index{-1};
   // Index of wildcard pattern if query includes this node as prefix
   // and it still has suffix to match.  Note that we don't store
   // duplicated pattern.
-  ssize_t wildcard_index;
+  ssize_t wildcard_index{-1};
 };
 
 class Router {
 public:
-  Router();
+  Router() noexcept = default;
   ~Router();
   Router(Router &&) noexcept = default;
   Router(const Router &) = delete;
@@ -100,10 +100,10 @@ public:
   void dump() const;
 
 private:
-  BlockAllocator balloc_;
+  BlockAllocator balloc_{1024, 1024};
   // The root node of Patricia tree.  This is special node and its s
   // field is nulptr, and len field is 0.
-  RNode root_;
+  RNode root_{};
 };
 
 } // namespace shrpx

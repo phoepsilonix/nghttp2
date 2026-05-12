@@ -93,7 +93,7 @@ template <typename T, typename F> bool test_flags(T t, F flags) {
 // T *dlnext, which point to previous element and next element in the
 // list respectively.
 template <typename T> struct DList {
-  DList() : head(nullptr), tail(nullptr), len(0) {}
+  DList() noexcept = default;
 
   DList(const DList &) = delete;
   DList &operator=(const DList &) = delete;
@@ -146,8 +146,8 @@ template <typename T> struct DList {
 
   size_t size() const { return len; }
 
-  T *head, *tail;
-  size_t len;
+  T *head{}, *tail{};
+  size_t len{};
 };
 
 template <typename T> void dlist_delete_all(DList<T> &dl) {
@@ -215,7 +215,7 @@ public:
   using const_iterator = const_pointer;
   using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-  constexpr ImmutableString() noexcept : len(0), base("") {}
+  constexpr ImmutableString() noexcept = default;
 
   constexpr ImmutableString(const char *s, size_t slen)
     : len(slen), base(copystr(s, s + len)) {}
@@ -319,8 +319,8 @@ private:
     return copystr(std::ranges::begin(r), std::ranges::end(r));
   }
 
-  size_type len;
-  const char *base;
+  size_type len{};
+  const char *base{""};
 };
 
 inline bool operator==(const ImmutableString &lhs, const ImmutableString &rhs) {

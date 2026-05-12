@@ -101,17 +101,9 @@ LiveCheck::LiveCheck(struct ev_loop *loop, SSL_CTX *ssl_ctx, Worker *worker,
           get_config()->tls.dyn_rec.idle_timeout, Proto::NONE),
     wb_(worker->get_mcpool()),
     gen_(gen),
-    read_(&LiveCheck::noop),
-    write_(&LiveCheck::noop),
     worker_(worker),
     ssl_ctx_(ssl_ctx),
-    addr_(addr),
-    session_(nullptr),
-    raddr_(nullptr),
-    success_count_(0),
-    fail_count_(0),
-    settings_ack_received_(false),
-    session_closing_(false) {
+    addr_(addr) {
   ev_timer_init(&backoff_timer_, backoff_timeoutcb, 0., 0.);
   backoff_timer_.data = this;
 

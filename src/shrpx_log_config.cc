@@ -43,10 +43,7 @@ Timestamp::Timestamp(std::chrono::system_clock::time_point tp) {
 LogConfig::LogConfig()
   : time_str_updated(std::chrono::system_clock::now()),
     tstamp(std::make_shared<Timestamp>(time_str_updated)),
-    pid(getpid()),
-    accesslog_fd(-1),
-    errorlog_fd(-1),
-    errorlog_tty(false) {
+    pid(getpid()) {
   auto tid = std::this_thread::get_id();
   auto tid_hash =
     util::hash32(std::string_view{reinterpret_cast<char *>(&tid), sizeof(tid)});

@@ -105,28 +105,30 @@ private:
   std::mt19937 &gen_;
   ev_timer backoff_timer_;
   ev_timer settings_timer_;
-  std::function<std::expected<void, Error>(LiveCheck &)> read_, write_;
+  std::function<std::expected<void, Error>(LiveCheck &)> read_{
+    &LiveCheck::noop},
+    write_{&LiveCheck::noop};
   Worker *worker_;
   // nullptr if no TLS is configured
   SSL_CTX *ssl_ctx_;
   // Address of remote endpoint
   DownstreamAddr *addr_;
-  nghttp2_session *session_;
+  nghttp2_session *session_{};
   // Actual remote address used to contact backend.  This is initially
   // nullptr, and may point to either &addr_->addr, or
   // resolved_addr_.get().
-  const Address *raddr_;
+  const Address *raddr_{};
   // Resolved IP address if dns parameter is used
   std::unique_ptr<Address> resolved_addr_;
   std::unique_ptr<DNSQuery> dns_query_;
   // The number of successful connect attempt in a row.
-  size_t success_count_;
+  size_t success_count_{};
   // The number of unsuccessful connect attempt in a row.
-  size_t fail_count_;
+  size_t fail_count_{};
   // true when SETTINGS ACK has been received from server.
-  bool settings_ack_received_;
+  bool settings_ack_received_{};
   // true when GOAWAY has been queued.
-  bool session_closing_;
+  bool session_closing_{};
 };
 
 } // namespace shrpx

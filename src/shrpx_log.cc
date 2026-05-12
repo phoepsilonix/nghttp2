@@ -113,10 +113,8 @@ Log::Log(int severity, const std::source_location loc)
     end_(begin_ + buf_.size()),
     last_(begin_),
     filename_(loc.file_name()),
-    flags_(0),
     severity_(severity),
-    linenum_(loc.line()),
-    full_(false) {
+    linenum_(loc.line()) {
   auto config = get_config();
 
   if (!config) {

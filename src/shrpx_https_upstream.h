@@ -116,11 +116,11 @@ public:
 private:
   ClientHandler *handler_;
   llhttp_t htp_;
-  size_t current_header_length_;
+  size_t current_header_length_{};
   std::unique_ptr<Downstream> downstream_;
   IOControl ioctrl_;
   // The number of requests seen so far.
-  size_t num_requests_;
+  size_t num_requests_{};
 };
 
 } // namespace shrpx

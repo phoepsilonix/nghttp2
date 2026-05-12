@@ -70,10 +70,7 @@ constexpr llhttp_settings_t htp_hooks = {
 };
 
 HttpsUpstream::HttpsUpstream(ClientHandler *handler)
-  : handler_(handler),
-    current_header_length_(0),
-    ioctrl_(handler->get_rlimit()),
-    num_requests_(0) {
+  : handler_(handler), ioctrl_(handler->get_rlimit()) {
   llhttp_init(&htp_, HTTP_REQUEST, &htp_hooks);
   htp_.data = this;
 }
