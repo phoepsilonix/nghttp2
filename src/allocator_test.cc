@@ -148,6 +148,10 @@ void test_concat_string_ref(void) {
   auto s = concat_string_ref(balloc, "alpha "sv, "bravo "sv, "charlie"sv);
 
   assert_stdsv_equal("alpha bravo charlie"sv, s);
+
+  auto t = concat_string_ref(balloc);
+
+  assert_stdsv_equal(""sv, t);
 }
 
 void test_realloc_concat_string_ref(void) {
